@@ -1,4 +1,4 @@
-package com.example.jobhunter1.DashBoardBackend;
+package com.example.jobhunter1.DashBoardBackend.Data;
 
 /**
  * DTS class placeholder
