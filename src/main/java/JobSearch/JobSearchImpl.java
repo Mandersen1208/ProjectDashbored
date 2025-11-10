@@ -1,4 +1,4 @@
-package com.example.jobhunter1.JobSearch;
+package JobSearch;
 
 /**
  * JobSearchImpl interface placeholder

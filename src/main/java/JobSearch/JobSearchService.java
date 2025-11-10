@@ -1,6 +1,6 @@
-package com.example.jobhunter1.JobSearch;
+package JobSearch;
 
-import com.example.jobhunter1.DashBoardBackend.Services.Implementations.JoabBoardImpl;
+import DashBoardBackend.Services.Implementations.JoabBoardImpl;
 
 /**
  * JobSearchService class implementing JobSearchImpl interface

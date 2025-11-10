@@ -1,4 +1,4 @@
-package com.example.jobhunter1.DashBoardBackend.Services;
+package DashBoardBackend.Services;
 
 /**
  * implementation of joab bored services

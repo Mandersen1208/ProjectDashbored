@@ -1,4 +1,4 @@
-package com.example.jobhunter1.DbUtility;
+package DbUtility;
 /**
  * CommonQueries class placeholder
  */

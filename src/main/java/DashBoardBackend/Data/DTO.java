@@ -1,4 +1,4 @@
-package com.example.jobhunter1.DashBoardBackend.Data;
+package DashBoardBackend.Data;
 /**
  * DTO class placeholder
  */

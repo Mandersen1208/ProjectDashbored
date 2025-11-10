@@ -1,4 +1,4 @@
-package com.example.jobhunter1.DashBoardBackend.Clients;
+package DashBoardBackend.Clients;
 
 /**
  * JobDashBoardApis class placeholder
