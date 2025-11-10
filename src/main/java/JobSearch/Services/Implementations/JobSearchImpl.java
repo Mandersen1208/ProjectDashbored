@@ -1,4 +1,4 @@
-package JobSearch;
+package JobSearch.Services.Implementations;
 
 /**
  * JobSearchImpl interface placeholder

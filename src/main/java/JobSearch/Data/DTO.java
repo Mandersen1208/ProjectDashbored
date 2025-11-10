@@ -1,4 +1,4 @@
-package JobSearch;
+package JobSearch.Data;
 
 /**
  * DTO class placeholder

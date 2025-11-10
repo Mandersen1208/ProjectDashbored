@@ -1,4 +1,4 @@
-package JobSearch;
+package JobSearch.Services;
 
 import DashBoardBackend.Services.Implementations.JoabBoardImpl;
 

@@ -1,4 +1,4 @@
-package JobSearch;
+package JobSearch.Data;
 /**
  * DTS class placeholder
  */
