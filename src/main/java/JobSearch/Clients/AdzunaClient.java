@@ -1,8 +1,8 @@
 package JobSearch.Clients;
 
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Configuration;
+import JobSearch.Data.SearchParamsDto;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -12,43 +12,46 @@ import java.net.URI;
  * Adzuna job search client
  */
 public class AdzunaClient extends Client {
+
     private final RestTemplate restTemplate;
-    private URI uri;
-    @Value("${adzuna.base-url}")
     private final String baseUrl;
-    @Value("${adzuna.api-key}")
     private final String apiKey;
-    @Value("${adzuna.api-id}")
     private final String apiId;
 
 
-    public AdzunaClient(RestTemplate restTemplate, URI uri, String baseUrl, String apiKey, String apiId) {
+    public AdzunaClient(RestTemplate restTemplate, String baseUrl, String apiKey, String apiId) {
         this.restTemplate = restTemplate;
-        this.uri = uri;
         this.baseUrl = baseUrl;
         this.apiKey = apiKey;
         this.apiId = apiId;
     }
 
     @Override
-    public URI client() {
-        uri = UriComponentsBuilder.fromUri(URI.create(baseUrl))
+    public URI buildUri(SearchParamsDto searchParamsDto) {
+        URI uri = UriComponentsBuilder.fromUri(URI.create(baseUrl))
                 .queryParam("app_id", apiId)
                 .queryParam("app_key", apiKey)
-                .queryParam("results_per_page", 20)
-                .queryParam("what", "barista")
-                .queryParam("where", "Raleigh")
-                .queryParam("full-time", 1)
-                .queryParam("what-excluded", "")
+                .queryParam("results_per_page", searchParamsDto.getResultsPerPage())
+                .queryParam("what", searchParamsDto.getQuery())
+                .queryParam("where", searchParamsDto.getLocation())
+                .queryParam("full-time", searchParamsDto.isFullTime())
+                .queryParam("what-excluded",
+                        java.util.Optional.ofNullable(searchParamsDto.getExcludedTerms()))
                 .queryParam("content-type", "application/json")
                 .build()
                 .toUri();
-        logRequest("AdzunaClient", baseUrl);
+        logRequest("AdzunaClient", searchParamsDto);
         return uri;
     }
 
     @Override
-    public ResponseEntity<String> getResponseEntity() {
-        return restTemplate.getForEntity(client(), String.class);
+    public ResponseEntity<String> getResponseEntity(SearchParamsDto searchParamsDto) {
+        URI uri = buildUri(searchParamsDto);
+        try {
+            return restTemplate.getForEntity(uri, String.class);
+        } catch (HttpClientErrorException e) {
+            logger.error("Error while calling Adzuna API: {}", e.getMessage());
+            throw e;
+        }
     }
 }

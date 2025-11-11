@@ -1,28 +1,36 @@
 package JobSearch.Clients;
 
+import JobSearch.Data.SearchParamsDto;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 
 import java.net.URI;
 
 public abstract class Client {
 
+    protected final Logger logger = LoggerFactory.getLogger(this.getClass());
+
+
     /**
      * used to build out the uri
+     *
      * @return URI
      */
-    public abstract URI client();
+    public abstract URI buildUri(SearchParamsDto searchParamsDto);
 
     /**
      *
      * sends request using the client
+     *
      * @return Response Entity from the client
      */
-    public abstract ResponseEntity<String> getResponseEntity();
+    public abstract ResponseEntity<String> getResponseEntity(SearchParamsDto searchParamsDto);
 
-    public void logRequest(String apiName, String query) {
-        System.out.print("calling: "+ apiName + "Api for the query: " + query);
+    protected void logRequest(String apiName, SearchParamsDto searchParams) {
+        logger.info("Calling {} API - Query: {}, Location: {}",
+                apiName,
+                searchParams.getQuery(),
+                searchParams.getLocation());
     }
-
-
-
 }
