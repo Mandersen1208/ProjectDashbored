@@ -1,8 +1,7 @@
 package JobSearch.Services;
 
-import DashBoardBackend.Services.Implementations.JoabBoardImpl;
 import JobSearch.Clients.AdzunaClient;
-import JobSearch.Data.SearchParamsDto;
+import DbConnections.DTO.SearchParamsDto;
 import JobSearch.Services.Implementations.JobSearchImpl;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;

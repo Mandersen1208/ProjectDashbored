@@ -1,6 +1,6 @@
 package JobSearch.Clients;
 
-import JobSearch.Data.SearchParamsDto;
+import DbConnections.DTO.SearchParamsDto;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;

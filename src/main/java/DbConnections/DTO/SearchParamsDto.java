@@ -1,4 +1,4 @@
-package JobSearch.Data;
+package DbConnections.DTO;
 
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
