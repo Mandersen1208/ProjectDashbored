@@ -22,10 +22,10 @@ public class SearchParamsDto {
     @Min(value = 1, message = "Results per page must be at least 1")
     @Max(value = 100, message = "Results per page cannot exceed 100")
     @Builder.Default
-    private int resultsPerPage = 20;
+    private int resultsPerPage = 100;
 
     @Builder.Default
-    private boolean fullTime = true;
+    private int fullTime = 1;
 
     @Nullable
     private String excludedTerms;

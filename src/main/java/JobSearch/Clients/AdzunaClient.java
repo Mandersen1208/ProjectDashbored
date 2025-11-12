@@ -31,12 +31,9 @@ public class AdzunaClient extends Client {
         URI uri = UriComponentsBuilder.fromUri(URI.create(baseUrl))
                 .queryParam("app_id", apiId)
                 .queryParam("app_key", apiKey)
-                .queryParam("results_per_page", searchParamsDto.getResultsPerPage())
+                .queryParam("results_per_page", 100)
                 .queryParam("what", searchParamsDto.getQuery())
                 .queryParam("where", searchParamsDto.getLocation())
-                .queryParam("full-time", searchParamsDto.isFullTime())
-                .queryParam("what-excluded",
-                        java.util.Optional.ofNullable(searchParamsDto.getExcludedTerms()))
                 .queryParam("content-type", "application/json")
                 .build()
                 .toUri();

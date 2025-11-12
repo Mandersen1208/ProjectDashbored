@@ -27,7 +27,7 @@ public class JobSearchService implements JobSearchImpl {
                 .build();
 
         params.setResultsPerPage(20);
-        params.setFullTime(true);
+        params.setFullTime(1);
 
         ResponseEntity<String> response = adzunaClient.getResponseEntity(params);
         return response.getBody();
