@@ -1,7 +1,6 @@
-// java
-package DbConnections.DTO;
+package DbConnections.DTO.Entities;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
+import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -13,49 +12,54 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
+@Entity
+@Table(name = "jobs")
 @Data
-@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class JobDto implements Serializable {
+@Builder
+public class JobEntity implements Serializable {
     @Serial
     private static final long serialVersionUID = 1L;
 
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @JsonProperty("external_id")
+    @Column(name = "external_id")
     private String externalId;
 
     private String title;
 
-    @JsonProperty("company_id")
+    @Column(name = "company_id")
     private Long companyId;
 
-    @JsonProperty("location_id")
+    @Column(name = "location_id")
     private Long locationId;
 
-    @JsonProperty("category_id")
+    @Column(name = "category_id")
     private Long categoryId;
 
-    @JsonProperty("salary_min")
+    @Column(name = "salary_min")
     private BigDecimal salaryMin;
 
-    @JsonProperty("salary_max")
+    @Column(name = "salary_max")
     private BigDecimal salaryMax;
 
+    @Column(columnDefinition = "text")
     private String description;
 
-    @JsonProperty("job_url")
+    @Column(name = "job_url")
     private String jobUrl;
 
     private String source;
 
-    @JsonProperty("created_date")
+    @Column(name = "created_date")
     private LocalDateTime createdDate;
 
-    @JsonProperty("date_found")
+    @Column(name = "date_found")
     private LocalDateTime dateFound;
 
-    @JsonProperty("apply_by")
+    @Column(name = "apply_by")
     private LocalDate applyBy;
 }

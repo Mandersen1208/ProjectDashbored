@@ -1,5 +1,4 @@
 package DbConnections;
 
-public class DbConnectionUtility {enum
-
+public class DbConnectionUtility {
 }
