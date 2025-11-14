@@ -26,13 +26,6 @@ public class JobEntity implements Serializable {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    /**
-     * Version field for optimistic locking.
-     * Hibernate automatically increments this on each update to prevent concurrent modification conflicts.
-     */
-    @Version
-    private Long version;
-
     @Column(name = "external_id")
     private String externalId;
 
