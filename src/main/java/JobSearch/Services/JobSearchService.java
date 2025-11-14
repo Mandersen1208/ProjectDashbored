@@ -66,12 +66,17 @@ public class JobSearchService implements JobSearchImpl {
 
             List<JobEntity> toSave = new ArrayList<>();
             for (JobDto dto : dtos) {
-                if (dto.getExternalId() != null) {
-                    // Skip if job already exists
-                    if (jobRepository.findByExternalId(dto.getExternalId()).isPresent()) {
-                        continue;
-                    }
+                if (dto.getExternalId() == null) {
+                    continue; // Skip jobs without external ID
                 }
+
+                // Skip if job already exists
+                if (jobRepository.findByExternalId(dto.getExternalId()).isPresent()) {
+                    continue;
+                }
+
+                // Set source to Adzuna before mapping
+                dto.setSource("Adzuna");
 
                 JobEntity entity = jobMapper.toEntity(dto);
                 if (entity == null) continue;
@@ -81,6 +86,7 @@ public class JobSearchService implements JobSearchImpl {
 
             if (!toSave.isEmpty()) {
                 jobRepository.saveAll(toSave);
+                System.out.println("Saved " + toSave.size() + " new jobs from Adzuna");
             }
 
         } catch (Exception e) {

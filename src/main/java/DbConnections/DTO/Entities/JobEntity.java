@@ -31,14 +31,14 @@ public class JobEntity implements Serializable {
 
     private String title;
 
-    @Column(name = "company_id")
-    private Long companyId;
+    @Column(name = "company_name")
+    private String companyName;
 
-    @Column(name = "location_id")
-    private Long locationId;
+    @Column(name = "location")
+    private String location;
 
-    @Column(name = "category_id")
-    private Long categoryId;
+    @Column(name = "category")
+    private String category;
 
     @Column(name = "salary_min")
     private BigDecimal salaryMin;
