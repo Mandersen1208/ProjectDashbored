@@ -9,10 +9,10 @@
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
     <groupId>com.example</groupId>
-    <artifactId>JobHunter1</artifactId>
+    <artifactId>ProjectDashbored</artifactId>
     <version>0.0.1-SNAPSHOT</version>
-    <name>JobHunter1</name>
-    <description>JobHunter1</description>
+    <name>ProjectDashbored</name>
+    <description>ProjectDashbored - Job Search Dashboard Application</description>
     <url/>
     <licenses>
         <license/>
@@ -92,7 +92,7 @@
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <configuration>
-                    <mainClass>jobHunter1.src.main.JobSearchApplication</mainClass>
+                    <mainClass>main.JobSearchApplication</mainClass>
                     <excludes>
                         <exclude>
                             <groupId>org.projectlombok</groupId>
