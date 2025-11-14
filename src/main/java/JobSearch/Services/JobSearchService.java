@@ -66,18 +66,16 @@ public class JobSearchService implements JobSearchImpl {
 
             List<JobEntity> toSave = new ArrayList<>();
             for (JobDto dto : dtos) {
+                if (dto.getExternalId() != null) {
+                    // Skip if job already exists
+                    if (jobRepository.findByExternalId(dto.getExternalId()).isPresent()) {
+                        continue;
+                    }
+                }
+
                 JobEntity entity = jobMapper.toEntity(dto);
                 if (entity == null) continue;
 
-                if (dto.getExternalId() != null) {
-                    jobRepository.findByExternalId(dto.getExternalId())
-                            .ifPresentOrElse(existing -> {
-                                // keep existing id to perform update
-                                entity.setId(existing.getId());
-                            }, () -> {
-                                // nothing: new entity (id stays null)
-                            });
-                }
                 toSave.add(entity);
             }
 
