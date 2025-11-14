@@ -15,7 +15,9 @@ RUN ./mvnw dependency:go-offline
 COPY src ./src
 
 # Build the application (skip tests for faster builds)
-RUN ./mvnw clean package -DskipTests
+RUN ./mvnw clean package -DskipTests && \
+    echo "Verifying JAR manifest:" && \
+    unzip -p target/*.jar META-INF/MANIFEST.MF | grep "Main-Class" || true
 
 # Stage 2: Run the application
 FROM eclipse-temurin:23-jre-alpine
