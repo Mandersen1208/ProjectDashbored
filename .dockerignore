@@ -1,0 +1,35 @@
+# Docker ignore file - exclude unnecessary files from Docker build
+
+# Maven target directory
+target/
+
+# IDE files
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Docker files
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Documentation
+*.md
+CLAUDE.md
+
+# Logs
+*.log
+
+# Init scripts (not needed in app container)
+init/
