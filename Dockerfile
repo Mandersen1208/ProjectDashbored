@@ -1,7 +1,7 @@
 # Multi-stage build for Spring Boot application
 
 # Stage 1: Build the application
-FROM maven:3.9-eclipse-temurin-17 AS build
+FROM maven:3.9-eclipse-temurin-23 AS build
 WORKDIR /app
 
 # Copy Maven wrapper and pom.xml first (for layer caching)
@@ -15,10 +15,12 @@ RUN ./mvnw dependency:go-offline
 COPY src ./src
 
 # Build the application (skip tests for faster builds)
-RUN ./mvnw clean package -DskipTests
+RUN ./mvnw clean package -DskipTests && \
+    echo "Verifying JAR manifest:" && \
+    unzip -p target/*.jar META-INF/MANIFEST.MF | grep "Main-Class" || true
 
 # Stage 2: Run the application
-FROM eclipse-temurin:17-jre-alpine
+FROM eclipse-temurin:23-jre-alpine
 WORKDIR /app
 
 # Copy the built JAR from build stage
