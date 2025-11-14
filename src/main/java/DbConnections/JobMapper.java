@@ -11,8 +11,9 @@ public class JobMapper {
     public JobEntity toEntity(JobDto dto) {
         if (dto == null) return null;
 
+        // Don't set id - let database generate it to avoid optimistic locking conflicts
+        // The dto.getId() comes from external API and causes Hibernate to treat this as an UPDATE
         return JobEntity.builder()
-                .id(dto.getId())
                 .externalId(dto.getExternalId())
                 .title(dto.getTitle())
                 .companyId(dto.getCompanyId())
