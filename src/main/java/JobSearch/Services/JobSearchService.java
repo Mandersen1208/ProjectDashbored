@@ -12,6 +12,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -39,6 +40,7 @@ public class JobSearchService implements JobSearchImpl {
     }
 
     @Override
+    @Transactional
     public String searchJobs(String query, String location) {
         SearchParamsDto params = SearchParamsDto.builder()
                 .query(query)
