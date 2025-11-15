@@ -17,10 +17,12 @@
   - Spring Boot DevTools (Development utilities)
 
 ### Current Status
-- Job search functionality is implemented with Adzuna API integration
-- Database configuration is present but disabled (see TODOs)
-- Dashboard backend services are stubbed but not fully implemented
-- Test structure exists but tests are not yet written
+- ✅ Job search functionality is implemented with Adzuna API integration
+- ✅ Database is ENABLED with PostgreSQL backend
+- ✅ Normalized database schema with foreign key relationships
+- ✅ Automatic data persistence from Adzuna API to database
+- 🚧 Dashboard backend services are stubbed but not fully implemented
+- 🚧 Test structure exists but tests are not yet written
 
 ---
 
@@ -52,16 +54,30 @@ src/
 │   │   │       ├── JobDashBoredService.java   # Stub service
 │   │   │       └── Implementations/
 │   │   │           └── JoabBoardImpl.java
-│   │   ├── DbConnections/                     # Database utilities
+│   │   ├── DbConnections/                     # Database layer
 │   │   │   ├── DbConnectionUtility.java
-│   │   │   └── DTO/
-│   │   │       └── SearchParamsDto.java       # Job search parameters
+│   │   │   ├── JobMapper.java                 # Maps API DTOs to entities
+│   │   │   ├── DTO/
+│   │   │   │   ├── JobDto.java                # Adzuna API response DTO
+│   │   │   │   ├── SearchParamsDto.java       # Job search parameters
+│   │   │   │   └── Entities/                  # JPA entities
+│   │   │   │       ├── JobEntity.java         # Job table
+│   │   │   │       ├── Company.java           # Companies table
+│   │   │   │       ├── Location.java          # Locations table
+│   │   │   │       └── Category.java          # Categories table
+│   │   │   └── Repositories/                  # JPA repositories
+│   │   │       ├── JobRepository.java
+│   │   │       ├── CompanyRepository.java
+│   │   │       ├── LocationRepository.java
+│   │   │       └── CategoryRepository.java
 │   │   └── com/example/jobhunter1/            # Original package
 │   │       └── JobHunter1Application.java     # Inactive entry point
 │   └── resources/
 │       ├── application.properties             # Primary configuration
 │       ├── application.yml                    # YAML configuration
 │       └── ClientConfigurations.env           # Environment variables
+├── init/
+│   └── schema.sql                             # PostgreSQL schema with triggers/views
 └── test/
     └── Test/com/example/jobhunter1/
         └── JobSearchTests/
@@ -87,20 +103,30 @@ src/
    - Spring's constructor-based dependency injection
    - Configuration beans in `@Configuration` classes
 
+4. **Normalized Database Schema**:
+   - Separate tables for companies, locations, and categories
+   - Jobs table uses foreign keys to reference lookup tables
+   - Automatic lookup/create pattern in `JobMapper`
+   - Prevents data duplication and maintains referential integrity
+
 ---
 
 ## Key Components
 
 ### 1. Application Entry Points
 
-#### Active: `JobSearchApplication.java` (src/main/JobSearchApplication.java)
+#### Active: `JobSearchApplication.java` (src/main/java/main/JobSearchApplication.java)
 ```java
-@SpringBootApplication(exclude = {DataSourceAutoConfiguration.class})
-@ComponentScan(basePackages = {"JobSearch"})
+@SpringBootApplication
+@ComponentScan(basePackages = {"JobSearch", "DbConnections", "DashBoardBackend"})
+@EnableRetry
+@EnableTransactionManagement
 ```
 - **Current main application**
-- Database auto-configuration is DISABLED (see line 9 TODO)
-- Only scans `JobSearch` package
+- ✅ Database is ENABLED with PostgreSQL
+- Scans `JobSearch`, `DbConnections`, and `DashBoardBackend` packages
+- `@EnableRetry` for handling transient failures
+- `@EnableTransactionManagement` for database operations
 - Located in `main` package (non-standard location)
 
 #### Inactive: `JobHunter1Application.java`
@@ -156,16 +182,199 @@ Base class providing:
   - `excludedTerms`: Optional exclusion filter
 - **Validation**: Jakarta Validation annotations present
 
-### 5. Services
+#### JobDto (`DbConnections.DTO.JobDto`)
+Maps Adzuna API JSON responses to Java objects:
+
+**Key Features**:
+- `@JsonIgnoreProperties(ignoreUnknown = true)` - Ignores unknown API fields
+- Maps Adzuna's `"id"` field to `externalId` (NOT the database ID)
+- Contains nested classes for API structure:
+  - `CompanyInfo` - maps `company.display_name`
+  - `LocationInfo` - maps `location.display_name`, `latitude`, `longitude`
+  - `CategoryInfo` - maps `category.tag`, `category.label`
+
+**Helper Methods**:
+- `getCompanyName()` - extracts company name from nested object
+- `getLocationName()` - extracts location display name
+- `getCategoryTag()` - extracts category tag
+
+**Field Mappings** (Adzuna API → JobDto):
+```
+"id"           → externalId
+"title"        → title
+"company"      → CompanyInfo (nested)
+"location"     → LocationInfo (nested)
+"category"     → CategoryInfo (nested)
+"salary_min"   → salaryMin
+"salary_max"   → salaryMax
+"description"  → description
+"redirect_url" → jobUrl
+"created"      → createdDate
+```
+
+### 5. Database Layer
+
+#### Database Schema Overview
+
+The application uses a **normalized PostgreSQL schema** with foreign key relationships:
+
+```sql
+companies (id, name, created_at)
+locations (id, city, state, country, display_name)
+categories (id, name, tag)
+jobs (id, external_id, company_id, location_id, category_id, ...)
+applications (id, job_id, status, date_applied, ...)
+status_history (id, application_id, old_status, new_status, ...)
+```
+
+**Key Features**:
+- Foreign keys ensure referential integrity
+- Unique constraints prevent duplicate companies/locations/categories
+- Triggers automatically create applications for new jobs
+- Triggers track application status changes
+- View `vw_jobs_full` joins all tables for easy querying
+
+#### JPA Entities
+
+##### JobEntity (`DbConnections.DTO.Entities.JobEntity`)
+Maps to `jobs` table:
+
+**Fields**:
+- `id` (Long) - Auto-generated primary key
+- `externalId` (String) - Adzuna job ID (unique)
+- `title` (String)
+- `companyId` (Long) - Foreign key → companies.id
+- `locationId` (Long) - Foreign key → locations.id
+- `categoryId` (Long) - Foreign key → categories.id
+- `salaryMin/salaryMax` (BigDecimal)
+- `description` (Text)
+- `jobUrl` (String)
+- `source` (String) - API source (e.g., "Adzuna")
+- `createdDate` (LocalDateTime) - Job posting date
+- `dateFound` (LocalDateTime) - When we found it
+- `applyBy` (LocalDate)
+
+**Important**: The entity ID is NEVER set from the DTO. It's always auto-generated by the database to avoid optimistic locking conflicts.
+
+##### Company (`DbConnections.DTO.Entities.Company`)
+Maps to `companies` table:
+
+**Fields**:
+- `id` (Long) - Auto-generated primary key
+- `name` (String) - Unique company name
+- `createdAt` (LocalDateTime) - Auto-set on creation
+
+##### Location (`DbConnections.DTO.Entities.Location`)
+Maps to `locations` table:
+
+**Fields**:
+- `id` (Long) - Auto-generated primary key
+- `city` (String) - Optional
+- `state` (String) - Optional
+- `country` (String) - Required (2-letter code)
+- `displayName` (String) - Required, human-readable location
+
+**Unique Constraint**: (city, state, country)
+
+##### Category (`DbConnections.DTO.Entities.Category`)
+Maps to `categories` table:
+
+**Fields**:
+- `id` (Long) - Auto-generated primary key
+- `name` (String) - Unique, human-readable name
+- `tag` (String) - Unique, machine-readable tag (e.g., "it-jobs")
+
+#### Repositories
+
+All repositories extend `JpaRepository<Entity, Long>`:
+
+##### JobRepository (`DbConnections.Repositories.JobRepository`)
+- `findByExternalId(String externalId)` - Look up job by Adzuna ID
+
+##### CompanyRepository (`DbConnections.Repositories.CompanyRepository`)
+- `findByName(String name)` - Look up company by name
+
+##### LocationRepository (`DbConnections.Repositories.LocationRepository`)
+- `findByDisplayName(String displayName)` - Look up location by display name
+
+##### CategoryRepository (`DbConnections.Repositories.CategoryRepository`)
+- `findByTag(String tag)` - Look up category by tag
+
+#### JobMapper (`DbConnections.JobMapper`)
+
+**Critical Component**: Converts JobDto → JobEntity with automatic foreign key resolution.
+
+**Key Behavior**:
+1. **Lookup or Create Pattern**: For each job, the mapper:
+   - Checks if company exists → if not, creates it
+   - Checks if location exists → if not, creates it
+   - Checks if category exists → if not, creates it
+   - Returns the foreign key IDs
+
+2. **Transaction Safety**:
+   - Annotated with `@Transactional`
+   - All lookups/creates are atomic
+   - Prevents race conditions in concurrent requests
+
+3. **ID Handling**:
+   - **NEVER** sets `JobEntity.id` from DTO
+   - Maps Adzuna `"id"` to `externalId` field
+   - Database auto-generates the entity ID
+
+**Methods**:
+- `toEntity(JobDto)` - Main conversion, handles lookup/create
+- `findOrCreateCompany(String)` - Private helper
+- `findOrCreateLocation(String)` - Private helper
+- `findOrCreateCategory(String)` - Private helper
+- `toDto(JobEntity)` - Reverse conversion (limited, IDs only)
+
+**Example Flow**:
+```
+Adzuna API returns:
+{
+  "id": "5354569383",
+  "company": {"display_name": "Meta"},
+  "location": {"display_name": "Five Points, Wake County"}
+}
+
+JobMapper process:
+1. Parse to JobDto (id → externalId)
+2. Look up "Meta" in companies table
+   - Not found → Create company, get ID = 1
+3. Look up "Five Points, Wake County" in locations
+   - Not found → Create location, get ID = 1
+4. Build JobEntity:
+   - externalId = "5354569383"
+   - companyId = 1
+   - locationId = 1
+   - id = NULL (database will generate)
+5. Save to database
+   - Database generates id = 42
+```
+
+### 6. Services
 
 #### JobSearchService (`JobSearch.Services.JobSearchService`)
 - Implements `JobSearchImpl` interface
-- Builds `SearchParamsDto` with defaults:
-  - `resultsPerPage`: 20
-  - `fullTime`: 1
-- Delegates to `AdzunaClient` for API calls
+- Annotated with `@Transactional` for database operations
+- **Workflow**:
+  1. Builds `SearchParamsDto` with defaults (resultsPerPage: 20, fullTime: 1)
+  2. Calls `AdzunaClient.getResponseEntity()` to fetch jobs
+  3. Parses JSON response to `List<JobDto>`
+  4. For each job:
+     - Checks if it already exists (by `externalId`)
+     - If new: Sets `source="Adzuna"` and converts to entity
+     - Skips if already in database
+  5. Batch saves all new jobs via `jobRepository.saveAll()`
+  6. Returns original API response to caller
 
-### 6. Dashboard Backend (Stub)
+**Key Features**:
+- Automatic duplicate detection via `externalId`
+- Transaction ensures atomicity
+- `JobMapper` handles foreign key lookups/creates
+- Logs count of saved jobs
+
+### 7. Dashboard Backend (Stub)
 
 #### JobDashBoredService (`DashBoardBackend.Services.JobDashBoredService`)
 Planned methods (all empty):
@@ -191,10 +400,10 @@ adzuna.base-url=https://api.adzuna.com/v1/api/jobs/us/search/1
 adzuna.api-id=0b846404
 adzuna.api-key=eb58ac8b07e0b9e1d7f9c77ea0bfe9ee
 
-# Database (Currently disabled)
-spring.datasource.url=jdbc:mysql://localhost:5431/jobhunt
-spring.datasource.username=JobHunter
-spring.datasource.password=Gemini1208!
+# Database (PostgreSQL - ENABLED)
+spring.datasource.url=jdbc:postgresql://localhost:5432/JobHunterDb2
+spring.datasource.username=admin
+spring.datasource.password=password
 spring.datasource.driver-class-name=org.postgresql.Driver
 spring.jpa.hibernate.ddl-auto=update
 spring.jpa.show-sql=true
@@ -203,9 +412,7 @@ spring.jpa.show-sql=true
 **IMPORTANT NOTES**:
 - ⚠️ API credentials are HARDCODED (should be in environment variables)
 - ⚠️ Database password is EXPOSED (should be in environment variables)
-- Database configuration has inconsistencies:
-  - URL uses MySQL (`jdbc:mysql`)
-  - Driver specifies PostgreSQL (`org.postgresql.Driver`)
+- ✅ Database is configured correctly with PostgreSQL
 
 #### application.yml (SECONDARY)
 - Contains Adzuna configuration with GB market URL
@@ -280,6 +487,71 @@ spring.jpa.show-sql=true
    - Log errors and re-throw
    - Consider adding custom exception classes
 
+### Optimistic Locking Fix (Database-Setup Branch)
+
+**Problem Solved**: The application was experiencing `org.springframework.orm.ObjectOptimisticLockingFailureException` when saving jobs from the Adzuna API.
+
+**Root Cause**:
+The Adzuna API returns jobs with an `"id"` field (e.g., `"5354569383"`). Initially, the code was mapping this API ID directly to the `JobEntity.id` field. This caused Hibernate to think these were existing entities that needed to be UPDATED, not new entities to be INSERTED. When Hibernate tried to UPDATE a non-existent row, it threw the optimistic locking exception.
+
+**The Fix** (3 commits):
+
+1. **Fixed Adzuna API Mapping** (commit eb9f536):
+   - Created proper `JobDto` with nested classes (`CompanyInfo`, `LocationInfo`, `CategoryInfo`)
+   - Mapped Adzuna `"id"` to `externalId` field (NOT `JobEntity.id`)
+   - Added `@JsonProperty` annotations to match Adzuna's JSON structure
+   - Added `@JsonIgnoreProperties(ignoreUnknown = true)` to handle API changes
+
+2. **Implemented Foreign Key Relationships** (commit 2a7eae0):
+   - Created `Company`, `Location`, `Category` entities
+   - Created repositories with lookup methods (`findByName`, `findByTag`, etc.)
+   - Updated `JobEntity` to use foreign keys (`companyId`, `locationId`, `categoryId`)
+   - Implemented `JobMapper` with lookup-or-create pattern
+   - Added `@Transactional` for atomicity
+
+3. **Key Design Decisions**:
+   - **Never set `JobEntity.id` from DTO** - Always let database auto-generate
+   - **Use `externalId` for API IDs** - Track Adzuna's ID separately
+   - **Normalize the schema** - Separate tables for companies/locations/categories
+   - **Automatic deduplication** - Check `externalId` before saving
+
+**Code Flow** (After Fix):
+```java
+Adzuna API Response:
+{
+  "id": "5354569383",           // Adzuna's job ID
+  "company": {"display_name": "Meta"},
+  "location": {"display_name": "Five Points, Wake County"}
+}
+
+JobSearchService.searchJobs():
+1. Parse JSON → JobDto (id → externalId)
+2. Check if externalId exists in database → Skip if found
+3. Set dto.source = "Adzuna"
+4. Call jobMapper.toEntity(dto)
+
+JobMapper.toEntity():
+1. Look up "Meta" in companies → Not found → Create → Get ID=1
+2. Look up "Five Points" in locations → Not found → Create → Get ID=2
+3. Build JobEntity:
+   - id = NULL (not set!)
+   - externalId = "5354569383"
+   - companyId = 1
+   - locationId = 2
+4. Return entity
+
+JobSearchService (continued):
+5. Save entity → Database generates id = 42
+6. Result: New job saved with auto-generated ID
+```
+
+**Why This Works**:
+- Hibernate sees `id=NULL` → Treats as new entity → INSERT operation
+- No version conflict because it's an INSERT, not an UPDATE
+- Foreign keys are properly resolved before saving
+- Transactions ensure atomicity of lookup/create operations
+- Duplicate jobs are prevented via `externalId` uniqueness
+
 ---
 
 ## Building & Running
@@ -309,8 +581,10 @@ Main class: `main.JobSearchApplication`
 
 **Startup Notes**:
 - Application runs on default port 8080
-- Database connection is disabled
-- Only `JobSearch` package components are loaded
+- ✅ Database connection is ENABLED (PostgreSQL)
+- Scans `JobSearch`, `DbConnections`, and `DashBoardBackend` packages
+- Requires PostgreSQL running on localhost:5432
+- Database schema auto-created via `init/schema.sql` (Docker) or `hibernate.ddl-auto=update`
 
 ### Testing the API
 
@@ -359,14 +633,28 @@ git log --oneline -10
 
 ## TODOs & Known Issues
 
+### ✅ Recently Completed
+
+1. **Database Integration** ✅ COMPLETE
+   - ✅ Removed `DataSourceAutoConfiguration` exclusion
+   - ✅ Resolved MySQL vs PostgreSQL driver inconsistency
+   - ✅ Implemented normalized database schema with foreign keys
+   - ✅ Created JPA entities (JobEntity, Company, Location, Category)
+   - ✅ Created repositories with lookup methods
+   - ✅ Implemented JobMapper with automatic foreign key resolution
+   - ✅ Enabled `@Transactional` and `@EnableRetry`
+   - ✅ Jobs are now automatically persisted from Adzuna API
+
+2. **Optimistic Locking Fix** ✅ COMPLETE
+   - ✅ Fixed `ObjectOptimisticLockingFailureException`
+   - ✅ JobMapper never sets entity ID from API response
+   - ✅ Database auto-generates all primary keys
+   - ✅ Proper mapping of Adzuna "id" to `externalId` field
+   - ✅ Transaction safety with `@Transactional`
+
 ### Critical TODOs
 
-1. **Database Integration** (`JobSearchApplication.java:8`)
-   - Remove `DataSourceAutoConfiguration` exclusion
-   - Resolve MySQL vs PostgreSQL driver inconsistency
-   - Test database connectivity
-
-2. **Security**
+1. **Security**
    - Move API credentials to environment variables
    - Remove sensitive data from `application.properties`
    - Add `.env` to `.gitignore`
@@ -378,34 +666,35 @@ git log --oneline -10
 
 ### Implementation TODOs
 
-4. **Dashboard Backend**
+2. **Dashboard Backend**
    - Implement `JobDashBoredService` methods
-   - Create database schema for saved/applied jobs
+   - Applications table exists (created by schema.sql triggers)
    - Add REST endpoints for dashboard
+   - Implement job application workflow
 
-5. **Testing**
+3. **Testing**
    - Write tests for `AdzunaClient`
    - Add integration tests for API endpoints
    - Mock external API calls
 
-6. **Multi-API Support**
+4. **Multi-API Support**
    - Add more job search API clients (Indeed, LinkedIn, etc.)
    - Implement result aggregation logic
    - Add client selection/rotation
 
 ### Code Quality Issues
 
-7. **Naming Inconsistencies**
+5. **Naming Inconsistencies**
    - `JobDashBoredService` → `JobDashboardService` (typo)
    - `JoabBoardImpl` → `JobBoardImpl` (typo)
    - `SearchParamsDto.Location` → lowercase `location`
 
-8. **Architecture**
+6. **Architecture**
    - `JobSearchApplication` in `main` package → move to standard package
    - Interface naming: `JobSearchImpl` should be `JobSearchService` (interface)
    - Consider renaming implementation to `JobSearchServiceImpl`
 
-9. **Documentation**
+7. **Documentation**
    - Add README.md with setup instructions
    - Document API endpoints with OpenAPI/Swagger
    - Add architecture diagrams
