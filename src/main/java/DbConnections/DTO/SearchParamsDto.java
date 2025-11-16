@@ -17,7 +17,7 @@ public class SearchParamsDto {
     private String query;
 
     @NotBlank(message = "Location cannot be blank")
-    private String Location;
+    private String location;
 
     @Min(value = 1, message = "Results per page must be at least 1")
     @Max(value = 100, message = "Results per page cannot exceed 100")
