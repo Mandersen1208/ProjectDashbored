@@ -511,7 +511,7 @@ spring.jpa.properties.hibernate.temp.use_jdbc_metadata_defaults=false
 **Root Cause**:
 The Adzuna API returns jobs with an `"id"` field (e.g., `"5354569383"`). Initially, the code was mapping this API ID directly to the `JobEntity.id` field. This caused Hibernate to think these were existing entities that needed to be UPDATED, not new entities to be INSERTED. When Hibernate tried to UPDATE a non-existent row, it threw the optimistic locking exception.
 
-**The Fix** (5 commits):
+**The Fix** (6 commits):
 
 1. **Fixed Adzuna API Mapping** (commit eb9f536):
    - Created proper `JobDto` with nested classes (`CompanyInfo`, `LocationInfo`, `CategoryInfo`)
@@ -544,6 +544,13 @@ The Adzuna API returns jobs with an `"id"` field (e.g., `"5354569383"`). Initial
    - Matches JPA `Long` type expectations
    - Resolves "found [int4], but expecting [bigint]" validation error
 
+6. **Fixed external_id Column Length Mismatch** (commit 14f84c8):
+   - Changed `external_id` from `VARCHAR(100)` to `VARCHAR(255)` in schema.sql
+   - Matches JPA default String mapping (255 characters)
+   - Prevents Hibernate from attempting ALTER COLUMN during validation
+   - Resolves "cannot alter type of a column used by a view or rule" error
+   - Views like `vw_jobs_full` depend on column types remaining stable
+
 **Key Design Decisions**:
    - **Never set `JobEntity.id` from DTO** - Always let database auto-generate
    - **Use `externalId` for API IDs** - Track Adzuna's ID separately
@@ -551,6 +558,8 @@ The Adzuna API returns jobs with an `"id"` field (e.g., `"5354569383"`). Initial
    - **Automatic deduplication** - Check `externalId` before saving
    - **Use BIGSERIAL for all IDs** - Matches JPA Long type (64-bit)
    - **Schema validation mode** - Database schema managed by SQL, not Hibernate
+   - **Match VARCHAR lengths** - All String columns must match JPA defaults or use @Column(length=X)
+   - **Views constrain schema** - Columns used by views cannot be altered, must be correct from start
 
 **Code Flow** (After Fix):
 ```java
@@ -717,6 +726,7 @@ git log --oneline -10
    - ✅ Added HikariCP connection pooling for stability
    - ✅ Configured schema validation mode (hibernate ddl-auto=validate)
    - ✅ Fixed schema.sql type mismatches (SERIAL → BIGSERIAL)
+   - ✅ Fixed VARCHAR length mismatches (external_id: 100 → 255)
 
 2. **Optimistic Locking Fix** ✅ COMPLETE
    - ✅ Fixed `ObjectOptimisticLockingFailureException`
@@ -904,6 +914,20 @@ When working on this codebase, consider asking the developer:
 ---
 
 **Last Updated**: 2025-11-16
-**Codebase Version**: Commit `e8dc71f` (Database setup complete)
+**Codebase Version**: Commit `14f84c8` (Database setup complete with all schema fixes)
 **Branch**: `claude/fix-optimistic-locking-exception-01648B6FHTg3VfcTRRHARrFs`
 **AI Assistant**: Claude (Anthropic)
+
+## Common Schema Validation Issues
+
+When using `hibernate.ddl-auto=validate`, ensure schema.sql types match JPA expectations:
+
+| JPA Type | Schema Type | Notes |
+|----------|-------------|-------|
+| Long | BIGSERIAL | NOT SERIAL (int4) |
+| String (no @Column) | VARCHAR(255) | Default JPA length |
+| String @Column(length=100) | VARCHAR(100) | Explicit length |
+| BigDecimal | NUMERIC | Precision/scale optional |
+| LocalDateTime | TIMESTAMP | NOT TIMESTAMP WITH TIME ZONE |
+
+**View Dependencies**: Columns used in views (like `vw_jobs_full`) cannot be altered. Schema must be correct from initial creation or views must be dropped/recreated.
