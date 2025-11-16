@@ -416,12 +416,13 @@ spring.datasource.hikari.connection-timeout=30000
 spring.datasource.hikari.idle-timeout=600000
 spring.datasource.hikari.max-lifetime=1800000
 spring.datasource.hikari.connection-test-query=SELECT 1
+spring.datasource.hikari.validation-timeout=5000
+spring.datasource.hikari.leak-detection-threshold=60000
 
 # JPA/Hibernate Settings
 spring.jpa.hibernate.ddl-auto=validate
 spring.jpa.show-sql=true
 spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect
-spring.jpa.properties.hibernate.temp.use_jdbc_metadata_defaults=false
 ```
 
 **IMPORTANT NOTES**:
@@ -430,6 +431,7 @@ spring.jpa.properties.hibernate.temp.use_jdbc_metadata_defaults=false
 - ✅ Database is fully configured with PostgreSQL on port 5433
 - ✅ HikariCP connection pooling enabled for stability
 - ✅ Schema validation mode (ddl-auto=validate) - schema created by init/schema.sql
+- ✅ Removed `use_jdbc_metadata_defaults=false` to prevent connection closure during validation
 
 #### application.yml (SECONDARY)
 - Contains Adzuna configuration with GB market URL
@@ -915,7 +917,7 @@ When working on this codebase, consider asking the developer:
 ---
 
 **Last Updated**: 2025-11-16
-**Codebase Version**: Commit `14f84c8` (Database setup complete with all schema fixes)
+**Codebase Version**: Commit `6616ffc` (Database setup complete, connection stability fixes)
 **Branch**: `claude/fix-optimistic-locking-exception-01648B6FHTg3VfcTRRHARrFs`
 **AI Assistant**: Claude (Anthropic)
 
@@ -932,3 +934,5 @@ When using `hibernate.ddl-auto=validate`, ensure schema.sql types match JPA expe
 | LocalDateTime | TIMESTAMP | NOT TIMESTAMP WITH TIME ZONE |
 
 **View Dependencies**: Columns used in views (like `vw_jobs_full`) cannot be altered. Schema must be correct from initial creation or views must be dropped/recreated.
+
+**Connection Closure During Validation**: If you see "This connection has been closed" errors during schema validation, ensure `spring.jpa.properties.hibernate.temp.use_jdbc_metadata_defaults` is NOT set to `false`. This setting prevents Hibernate from properly reading table metadata and causes premature connection closure.
