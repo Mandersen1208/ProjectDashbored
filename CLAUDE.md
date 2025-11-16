@@ -22,7 +22,7 @@
 - ✅ Normalized database schema with foreign key relationships (BIGSERIAL IDs)
 - ✅ Automatic data persistence from Adzuna API to database
 - ✅ HikariCP connection pooling configured
-- ✅ Schema validation enabled (hibernate ddl-auto=validate)
+- ✅ Schema fully managed by init/schema.sql (hibernate ddl-auto=none)
 - ✅ Optimistic locking exception RESOLVED
 - 🚧 Dashboard backend services are stubbed but not fully implemented
 - 🚧 Test structure exists but tests are not yet written
@@ -420,9 +420,10 @@ spring.datasource.hikari.validation-timeout=5000
 spring.datasource.hikari.leak-detection-threshold=60000
 
 # JPA/Hibernate Settings
-spring.jpa.hibernate.ddl-auto=validate
+spring.jpa.hibernate.ddl-auto=none
 spring.jpa.show-sql=true
 spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect
+spring.jpa.open-in-view=false
 ```
 
 **IMPORTANT NOTES**:
@@ -430,8 +431,8 @@ spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect
 - ⚠️ Database password is EXPOSED (should be in environment variables)
 - ✅ Database is fully configured with PostgreSQL on port 5433
 - ✅ HikariCP connection pooling enabled for stability
-- ✅ Schema validation mode (ddl-auto=validate) - schema created by init/schema.sql
-- ✅ Removed `use_jdbc_metadata_defaults=false` to prevent connection closure during validation
+- ✅ Schema managed by init/schema.sql (ddl-auto=none) - Hibernate doesn't touch the schema
+- ✅ Open-in-view disabled to prevent connection leaks
 
 #### application.yml (SECONDARY)
 - Contains Adzuna configuration with GB market URL
@@ -513,7 +514,7 @@ spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect
 **Root Cause**:
 The Adzuna API returns jobs with an `"id"` field (e.g., `"5354569383"`). Initially, the code was mapping this API ID directly to the `JobEntity.id` field. This caused Hibernate to think these were existing entities that needed to be UPDATED, not new entities to be INSERTED. When Hibernate tried to UPDATE a non-existent row, it threw the optimistic locking exception.
 
-**The Fix** (6 commits):
+**The Fix** (7 commits):
 
 1. **Fixed Adzuna API Mapping** (commit eb9f536):
    - Created proper `JobDto` with nested classes (`CompanyInfo`, `LocationInfo`, `CategoryInfo`)
@@ -552,6 +553,13 @@ The Adzuna API returns jobs with an `"id"` field (e.g., `"5354569383"`). Initial
    - Prevents Hibernate from attempting ALTER COLUMN during validation
    - Resolves "cannot alter type of a column used by a view or rule" error
    - Views like `vw_jobs_full` depend on column types remaining stable
+
+7. **Changed DDL Mode from Validate to None** (commit f8d2713):
+   - Changed `spring.jpa.hibernate.ddl-auto` from "validate" to "none"
+   - Prevents Hibernate from inspecting schema metadata during startup
+   - Resolves persistent "This connection has been closed" errors during validation
+   - Schema is fully managed by init/schema.sql, no need for Hibernate validation
+   - Added `spring.jpa.open-in-view=false` to prevent connection leaks
 
 **Key Design Decisions**:
    - **Never set `JobEntity.id` from DTO** - Always let database auto-generate
@@ -917,13 +925,24 @@ When working on this codebase, consider asking the developer:
 ---
 
 **Last Updated**: 2025-11-16
-**Codebase Version**: Commit `6616ffc` (Database setup complete, connection stability fixes)
+**Codebase Version**: Commit `f8d2713` (Database setup complete, all connection issues resolved)
 **Branch**: `claude/fix-optimistic-locking-exception-01648B6FHTg3VfcTRRHARrFs`
 **AI Assistant**: Claude (Anthropic)
 
-## Common Schema Validation Issues
+## Database Schema Management
 
-When using `hibernate.ddl-auto=validate`, ensure schema.sql types match JPA expectations:
+This project uses `hibernate.ddl-auto=none` because the schema is fully managed by `init/schema.sql`. Hibernate does not create, validate, or modify the database schema.
+
+### Why ddl-auto=none?
+
+After extensive troubleshooting, we switched from `validate` to `none` because:
+1. Schema validation caused persistent "This connection has been closed" errors
+2. Hibernate would spend too much time inspecting indexes/constraints, causing connections to timeout
+3. Our schema is managed externally via `init/schema.sql`, so validation is redundant
+
+### Schema Type Reference
+
+If you ever need to add new entities, ensure your schema.sql types match JPA expectations:
 
 | JPA Type | Schema Type | Notes |
 |----------|-------------|-------|
@@ -935,4 +954,4 @@ When using `hibernate.ddl-auto=validate`, ensure schema.sql types match JPA expe
 
 **View Dependencies**: Columns used in views (like `vw_jobs_full`) cannot be altered. Schema must be correct from initial creation or views must be dropped/recreated.
 
-**Connection Closure During Validation**: If you see "This connection has been closed" errors during schema validation, ensure `spring.jpa.properties.hibernate.temp.use_jdbc_metadata_defaults` is NOT set to `false`. This setting prevents Hibernate from properly reading table metadata and causes premature connection closure.
+**Best Practice**: Always test schema changes by recreating the database (`docker-compose down -v && docker-compose up -d`) to ensure init/schema.sql creates the correct structure.
