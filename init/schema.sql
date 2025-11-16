@@ -59,7 +59,7 @@ CREATE TABLE categories (
 -- Jobs table
 CREATE TABLE jobs (
     id BIGSERIAL PRIMARY KEY,
-    external_id VARCHAR(100) NOT NULL UNIQUE,
+    external_id VARCHAR(255) NOT NULL UNIQUE,
     title VARCHAR(255) NOT NULL,
     company_id BIGINT REFERENCES companies(id),
     location_id BIGINT REFERENCES locations(id),
