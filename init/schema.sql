@@ -34,14 +34,14 @@ $$ LANGUAGE plpgsql;
 
 -- Companies table
 CREATE TABLE companies (
-    id SERIAL PRIMARY KEY,
+    id BIGSERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL UNIQUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Locations table
 CREATE TABLE locations (
-    id SERIAL PRIMARY KEY,
+    id BIGSERIAL PRIMARY KEY,
     city VARCHAR(100),
     state VARCHAR(100),
     country VARCHAR(2) NOT NULL,
@@ -51,19 +51,19 @@ CREATE TABLE locations (
 
 -- Categories table
 CREATE TABLE categories (
-    id SERIAL PRIMARY KEY,
+    id BIGSERIAL PRIMARY KEY,
     name VARCHAR(100) NOT NULL UNIQUE,
     tag VARCHAR(100) NOT NULL UNIQUE
 );
 
 -- Jobs table
 CREATE TABLE jobs (
-    id SERIAL PRIMARY KEY,
+    id BIGSERIAL PRIMARY KEY,
     external_id VARCHAR(100) NOT NULL UNIQUE,
     title VARCHAR(255) NOT NULL,
-    company_id INTEGER REFERENCES companies(id),
-    location_id INTEGER REFERENCES locations(id),
-    category_id INTEGER REFERENCES categories(id),
+    company_id BIGINT REFERENCES companies(id),
+    location_id BIGINT REFERENCES locations(id),
+    category_id BIGINT REFERENCES categories(id),
     salary_min NUMERIC(12,2),
     salary_max NUMERIC(12,2),
     description TEXT,
@@ -77,8 +77,8 @@ CREATE TABLE jobs (
 
 -- Applications table
 CREATE TABLE applications (
-    id SERIAL PRIMARY KEY,
-    job_id INTEGER REFERENCES jobs(id) ON DELETE CASCADE,
+    id BIGSERIAL PRIMARY KEY,
+    job_id BIGINT REFERENCES jobs(id) ON DELETE CASCADE,
     status VARCHAR(50) DEFAULT 'new',
     date_applied DATE,
     resume_version VARCHAR(100),
@@ -90,8 +90,8 @@ CREATE TABLE applications (
 
 -- Status history table
 CREATE TABLE status_history (
-    id SERIAL PRIMARY KEY,
-    application_id INTEGER REFERENCES applications(id) ON DELETE CASCADE,
+    id BIGSERIAL PRIMARY KEY,
+    application_id BIGINT REFERENCES applications(id) ON DELETE CASCADE,
     old_status VARCHAR(50),
     new_status VARCHAR(50) NOT NULL,
     changed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
