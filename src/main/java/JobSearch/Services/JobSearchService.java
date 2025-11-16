@@ -10,6 +10,8 @@ import JobSearch.Services.Implementations.JobSearchImpl;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,6 +24,8 @@ import java.util.List;
  */
 @Service
 public class JobSearchService implements JobSearchImpl {
+
+    private static final Logger log = LoggerFactory.getLogger(JobSearchService.class);
 
     private final AdzunaClient adzunaClient;
     private final JobRepository jobRepository;
@@ -88,12 +92,12 @@ public class JobSearchService implements JobSearchImpl {
 
             if (!toSave.isEmpty()) {
                 jobRepository.saveAll(toSave);
-                System.out.println("Saved " + toSave.size() + " new jobs from Adzuna");
+                log.info("Saved {} new jobs from Adzuna", toSave.size());
             }
 
         } catch (Exception e) {
             // swallow or log as appropriate; keep response returned
-            e.printStackTrace();
+            log.error("Error processing Adzuna API response", e);
         }
 
         return response.getBody();
