@@ -45,8 +45,7 @@ CREATE TABLE locations (
     city VARCHAR(100),
     state VARCHAR(100),
     country VARCHAR(2) NOT NULL,
-    display_name VARCHAR(255) NOT NULL,
-    UNIQUE (city, state, country)
+    display_name VARCHAR(255) NOT NULL UNIQUE
 );
 
 -- Categories table
