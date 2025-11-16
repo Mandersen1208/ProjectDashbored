@@ -641,7 +641,8 @@ Main class: `main.JobSearchApplication`
 - Scans `JobSearch`, `DbConnections`, and `DashBoardBackend` packages
 - Requires PostgreSQL running on localhost:5433 (Docker)
 - Database schema created via `init/schema.sql` (Docker initialization)
-- Hibernate validates schema (ddl-auto=validate), does not modify it
+- Hibernate ignores schema (ddl-auto=none), does not validate or modify it
+- Configuration is consistent between local and Docker environments
 
 ### Testing the API
 
@@ -925,7 +926,7 @@ When working on this codebase, consider asking the developer:
 ---
 
 **Last Updated**: 2025-11-16
-**Codebase Version**: Commit `f8d2713` (Database setup complete, all connection issues resolved)
+**Codebase Version**: Commit `63c74a0` (Database setup complete, local/Docker config synced)
 **Branch**: `claude/fix-optimistic-locking-exception-01648B6FHTg3VfcTRRHARrFs`
 **AI Assistant**: Claude (Anthropic)
 
