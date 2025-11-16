@@ -668,6 +668,7 @@ docker-compose ps
 - **User**: admin
 - **Password**: password
 - **Init Script**: `init/schema.sql` runs automatically on first start
+- **Restart Policy**: `on-failure:3` (max 3 restart attempts, prevents infinite loops)
 
 **Important**: After modifying `init/schema.sql`, you MUST run `docker-compose down -v` to remove the old database volume, then `docker-compose up -d` to recreate with new schema.
 
