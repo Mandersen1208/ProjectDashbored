@@ -2,6 +2,7 @@ package JobSearch.Services;
 
 import DbConnections.DTO.Entities.JobEntity;
 import DbConnections.DTO.JobDto;
+import DbConnections.DTO.JobSearchResponseDto;
 import DbConnections.JobMapper;
 import DbConnections.Repositories.JobRepository;
 import JobSearch.Clients.AdzunaClient;
@@ -14,6 +15,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -41,7 +43,7 @@ public class JobSearchService implements JobSearchImpl {
 
     @Override
     @Transactional
-    public String searchJobs(String query, String location) {
+    public JobSearchResponseDto searchJobs(String query, String location) {
         SearchParamsDto params = SearchParamsDto.builder()
                 .query(query)
                 .location(location)
@@ -50,16 +52,26 @@ public class JobSearchService implements JobSearchImpl {
         params.setResultsPerPage(20);
         params.setFullTime(1);
 
+        // Build the URI for direct access
+        URI searchUri = adzunaClient.buildUri(params);
+
         ResponseEntity<String> response = adzunaClient.getResponseEntity(params);
         String body = response.getBody();
         if (body == null || body.isEmpty()) {
             throw new IllegalStateException("Empty response from Adzuna API");
         }
 
+        List<JobDto> dtos = new ArrayList<>();
+        Integer totalCount = 0;
+
         try {
             JsonNode root = objectMapper.readTree(body);
             JsonNode resultsNode = root.path("results");
-            List<JobDto> dtos = new ArrayList<>();
+            JsonNode countNode = root.path("count");
+
+            if (countNode.isInt()) {
+                totalCount = countNode.asInt();
+            }
 
             if (resultsNode.isArray()) {
                 dtos = objectMapper.convertValue(resultsNode, new TypeReference<List<JobDto>>() {
@@ -96,6 +108,11 @@ public class JobSearchService implements JobSearchImpl {
             e.printStackTrace();
         }
 
-        return response.getBody();
+        // Build and return the response DTO with URI and results
+        return JobSearchResponseDto.builder()
+                .searchUri(searchUri.toString())
+                .results(dtos)
+                .totalCount(totalCount)
+                .build();
     }
 }

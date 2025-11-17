@@ -1,5 +1,6 @@
 package JobSearch.Controllers;
 
+import DbConnections.DTO.JobSearchResponseDto;
 import JobSearch.Services.Implementations.JobSearchImpl;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -18,9 +19,9 @@ public class JobSearchController {
     }
 
     @GetMapping("/search")
-    public  String searchJobs(@RequestParam String query,
-                              @RequestParam String location) {
+    public JobSearchResponseDto searchJobs(@RequestParam String query,
+                                           @RequestParam String location) {
 
-        return jobSearchImpl.searchJobs(query,location);
+        return jobSearchImpl.searchJobs(query, location);
     }
 }
