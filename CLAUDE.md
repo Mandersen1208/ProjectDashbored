@@ -24,6 +24,7 @@
 - ✅ HikariCP connection pooling configured
 - ✅ Schema fully managed by init/schema.sql (hibernate ddl-auto=none)
 - ✅ Optimistic locking exception RESOLVED
+- ✅ API efficiency improvements with JobSearchResponseDto (exposes search URI, reduces parameter redundancy)
 - 🚧 Dashboard backend services are stubbed but not fully implemented
 - 🚧 Test structure exists but tests are not yet written
 
@@ -63,6 +64,7 @@ src/
 │   │   │   ├── DTO/
 │   │   │   │   ├── JobDto.java                # Adzuna API response DTO
 │   │   │   │   ├── SearchParamsDto.java       # Job search parameters
+│   │   │   │   ├── JobSearchResponseDto.java  # API response wrapper with URI
 │   │   │   │   └── Entities/                  # JPA entities
 │   │   │   │       ├── JobEntity.java         # Job table
 │   │   │   │       ├── Company.java           # Companies table
@@ -144,9 +146,20 @@ src/
 - **Parameters**:
   - `query` (required): Job title or keywords
   - `location` (required): Job location
-- **Returns**: JSON string of job results from Adzuna
+- **Returns**: `JobSearchResponseDto` containing:
+  - `searchUri`: Built Adzuna API URL for direct access
+  - `results`: List of `JobDto` objects
+  - `totalCount`: Total number of results available
 - **Controller**: `JobSearch.Controllers.JobSearchController`
-- **Handler**: `JobSearchController:24`
+- **Handler**: `JobSearchController:22`
+- **Example Response**:
+  ```json
+  {
+    "searchUri": "https://api.adzuna.com/v1/api/jobs/us/search/1?app_id=...&what=java&where=remote",
+    "results": [ /* array of JobDto objects */ ],
+    "totalCount": 123
+  }
+  ```
 
 ### 3. Job Search Client System
 
@@ -213,6 +226,33 @@ Maps Adzuna API JSON responses to Java objects:
 "description"  → description
 "redirect_url" → jobUrl
 "created"      → createdDate
+```
+
+#### JobSearchResponseDto (`DbConnections.DTO.JobSearchResponseDto`)
+API response wrapper that improves efficiency by exposing the built search URI.
+
+**Purpose**:
+- Eliminates parameter redundancy between controllers
+- Allows other controllers to directly access the Adzuna API without rebuilding URIs
+- Provides clean, structured response following KISS principle
+
+**Fields**:
+- `searchUri` (String) - The complete Adzuna API URL that was called
+- `results` (List<JobDto>) - The job results from the API
+- `totalCount` (Integer) - Total number of results available from Adzuna
+
+**Annotations**:
+- `@Builder` - Provides builder pattern for construction
+- `@Getter`, `@Setter` - Lombok-generated accessors
+- `@NoArgsConstructor`, `@AllArgsConstructor` - Constructors for JSON serialization
+
+**Usage**:
+```java
+JobSearchResponseDto response = JobSearchResponseDto.builder()
+    .searchUri("https://api.adzuna.com/...")
+    .results(jobDtos)
+    .totalCount(123)
+    .build();
 ```
 
 ### 5. Database Layer
@@ -362,20 +402,22 @@ JobMapper process:
 - Annotated with `@Transactional` for database operations
 - **Workflow**:
   1. Builds `SearchParamsDto` with defaults (resultsPerPage: 20, fullTime: 1)
-  2. Calls `AdzunaClient.getResponseEntity()` to fetch jobs
-  3. Parses JSON response to `List<JobDto>`
-  4. For each job:
+  2. Builds the search URI using `AdzunaClient.buildUri()` for direct access
+  3. Calls `AdzunaClient.getResponseEntity()` to fetch jobs
+  4. Parses JSON response to `List<JobDto>` and extracts `totalCount`
+  5. For each job:
      - Checks if it already exists (by `externalId`)
      - If new: Sets `source="Adzuna"` and converts to entity
      - Skips if already in database
-  5. Batch saves all new jobs via `jobRepository.saveAll()`
-  6. Returns original API response to caller
+  6. Batch saves all new jobs via `jobRepository.saveAll()`
+  7. Returns `JobSearchResponseDto` with URI, results, and count
 
 **Key Features**:
 - Automatic duplicate detection via `externalId`
 - Transaction ensures atomicity
 - `JobMapper` handles foreign key lookups/creates
 - Logs count of saved jobs
+- Exposes search URI for efficiency (eliminates parameter redundancy)
 
 ### 7. Dashboard Backend (Stub)
 
@@ -909,12 +951,13 @@ When working on this codebase, consider asking the developer:
 
 ---
 
-**Last Updated**: 2025-11-16
-**Codebase Version**: Commit `4aff9e5` (Database setup COMPLETE - all issues resolved)
-**Branch**: `claude/fix-optimistic-locking-exception-01648B6FHTg3VfcTRRHARrFs`
+**Last Updated**: 2025-11-17
+**Codebase Version**: Commit `1685fa8` (API efficiency improvements - JobSearchResponseDto added)
+**Branch**: `claude/adzuna-api-update-01QNb7xkWt6mr8rWZgWA8qRr`
 **AI Assistant**: Claude (Anthropic)
 
 **Database Status**: ✅ Fully operational in both local and Docker environments
+**API Status**: ✅ Enhanced with JobSearchResponseDto for improved efficiency
 
 ## Database Schema Management
 
@@ -977,4 +1020,6 @@ The database integration is **complete and operational**. You can:
 - **Schema**: Managed by `init/schema.sql` (hibernate ddl-auto=none)
 - **Connection**: HikariCP pooling enabled
 - **Restart Policy**: Limited to 3 attempts (prevents loops)
-- **Next Focus**: Security (move credentials to env vars) or Dashboard implementation
+- **API Response**: Now returns `JobSearchResponseDto` with searchUri, results, and totalCount
+- **Efficiency**: Search URI exposed in response eliminates parameter redundancy between controllers
+- **Next Focus**: Security (move credentials to env vars), Dashboard implementation, or additional API efficiency improvements
