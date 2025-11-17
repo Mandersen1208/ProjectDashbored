@@ -1,9 +1,11 @@
 package JobSearch.Services.Implementations;
 
+import DbConnections.DTO.JobSearchResponseDto;
+
 /**
  * JobSearchImpl interface placeholder
  */
 public interface JobSearchImpl {
 
-    String searchJobs(String query, String location);
+    JobSearchResponseDto searchJobs(String query, String location);
 }
