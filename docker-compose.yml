@@ -22,6 +22,23 @@ services:
     networks:
       - jobhunter-network
 
+  redis:
+    container_name: jobhunter-redis
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - jobhunter-network
+
   app:
     container_name: jobhunter-app
     build:
@@ -37,8 +54,12 @@ services:
       SPRING_JPA_HIBERNATE_DDL_AUTO: none
       SPRING_JPA_SHOW_SQL: "true"
       SPRING_JPA_OPEN_IN_VIEW: "false"
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: "6379"
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     networks:
       - jobhunter-network
@@ -49,3 +70,4 @@ networks:
 
 volumes:
   pgdata:
+  redis-data:
