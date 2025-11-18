@@ -28,7 +28,10 @@ public class AdzunaClient extends Client {
 
     @Override
     public URI buildUri(SearchParamsDto searchParamsDto) {
-        URI uri = UriComponentsBuilder.fromUri(URI.create(baseUrl))
+        // Replace page number in baseUrl (e.g., /search/1 becomes /search/2)
+        String urlWithPage = baseUrl.replaceFirst("/search/\\d+", "/search/" + searchParamsDto.getPage());
+
+        URI uri = UriComponentsBuilder.fromUri(URI.create(urlWithPage))
                 .queryParam("app_id", apiId)
                 .queryParam("app_key", apiKey)
                 .queryParam("results_per_page", 100)

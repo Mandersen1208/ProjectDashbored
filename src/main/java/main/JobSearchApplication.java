@@ -5,6 +5,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.domain.EntityScan;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
+import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 
 /**
@@ -12,12 +13,13 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
  * - Database is ENABLED with PostgreSQL
  * - Retry mechanism enabled for handling transient failures
  * - Transaction management enabled for database operations
+ * - Scheduling enabled for automated job fetching
  */
 @SpringBootApplication
-@ComponentScan(basePackages = {"JobSearch", "DbConnections", "DashBoardBackend"})
+@ComponentScan(basePackages = {"JobSearch", "DbConnections", "DashBoardBackend", "JobSearch.Config"})
 @EnableJpaRepositories(basePackages = "DbConnections.Repositories")
 @EntityScan(basePackages = "DbConnections.DTO.Entities")
-
+@EnableScheduling
 @EnableTransactionManagement
 public class JobSearchApplication {
 

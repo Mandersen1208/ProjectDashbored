@@ -97,6 +97,21 @@ CREATE TABLE status_history (
     notes TEXT
 );
 
+-- Saved queries table for scheduled job searches
+CREATE TABLE saved_queries (
+    id BIGSERIAL PRIMARY KEY,
+    query VARCHAR(255) NOT NULL,
+    location VARCHAR(255) NOT NULL,
+    results_per_page INTEGER DEFAULT 100,
+    full_time INTEGER DEFAULT 1,
+    excluded_terms VARCHAR(500),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_run_at TIMESTAMP,
+    UNIQUE (query, location)
+);
+
 -- ============================================
 -- INDEXES
 -- ============================================
@@ -106,6 +121,7 @@ CREATE INDEX idx_jobs_location ON jobs(location_id);
 CREATE INDEX idx_jobs_date_found ON jobs(date_found);
 CREATE INDEX idx_applications_job ON applications(job_id);
 CREATE INDEX idx_applications_status ON applications(status);
+CREATE INDEX idx_saved_queries_active ON saved_queries(is_active);
 
 -- ============================================
 -- TRIGGERS

@@ -30,4 +30,8 @@ public class SearchParamsDto {
     @Nullable
     private String excludedTerms;
 
+    @Min(value = 1, message = "Page must be at least 1")
+    @Builder.Default
+    private int page = 1;
+
 }
