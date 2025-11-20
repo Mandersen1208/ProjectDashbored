@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { SearchParams } from '../models/search-params.model';
+import { JobSearchResponse } from '../models/job-search-response.model';
 
 @Injectable({
   providedIn: 'root'
@@ -11,7 +12,7 @@ export class JobSearchService {
 
   constructor(private http: HttpClient) { }
 
-  searchJobs(searchParams: SearchParams): Observable<string> {
+  searchJobs(searchParams: SearchParams): Observable<JobSearchResponse> {
     let params = new HttpParams()
       .set('query', searchParams.query)
       .set('location', searchParams.location);
@@ -28,6 +29,6 @@ export class JobSearchService {
       params = params.set('excludedTerms', searchParams.excludedTerms);
     }
 
-    return this.http.get<string>(`${this.apiUrl}/search`, { params });
+    return this.http.get<JobSearchResponse>(`${this.apiUrl}/search`, { params });
   }
 }

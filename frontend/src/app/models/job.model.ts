@@ -16,4 +16,15 @@ export interface Job {
   createdDate: string;
   dateFound?: string;
   applyBy?: string;
+
+  // Nested objects for compatibility with Adzuna format
+  company?: {
+    display_name?: string;
+  };
+  location?: {
+    display_name?: string;
+  };
+
+  // Alternative field name from Adzuna
+  redirect_url?: string;
 }

@@ -2,8 +2,13 @@ package JobSearch.Services;
 
 import DbConnections.DTO.Entities.JobEntity;
 import DbConnections.DTO.JobDto;
+import DbConnections.DTO.JobResponseDto;
+import DbConnections.DTO.JobSearchResponseDto;
 import DbConnections.JobMapper;
+import DbConnections.Repositories.CompanyRepository;
 import DbConnections.Repositories.JobRepository;
+import DbConnections.Repositories.LocationRepository;
+import DbConnections.Repositories.CategoryRepository;
 import JobSearch.Clients.AdzunaClient;
 import DbConnections.DTO.SearchParamsDto;
 import JobSearch.Services.Implementations.JobSearchImpl;
@@ -12,12 +17,14 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * JobSearchService class implementing JobSearchImpl interface
@@ -29,16 +36,25 @@ public class JobSearchService implements JobSearchImpl {
 
     private final AdzunaClient adzunaClient;
     private final JobRepository jobRepository;
+    private final CompanyRepository companyRepository;
+    private final LocationRepository locationRepository;
+    private final CategoryRepository categoryRepository;
     private final JobMapper jobMapper;
     private final ObjectMapper objectMapper;
 
 
     public JobSearchService(AdzunaClient adzunaClient,
                             JobRepository jobRepository,
+                            CompanyRepository companyRepository,
+                            LocationRepository locationRepository,
+                            CategoryRepository categoryRepository,
                             JobMapper jobMapper,
                             ObjectMapper objectMapper) {
         this.adzunaClient = adzunaClient;
         this.jobRepository = jobRepository;
+        this.companyRepository = companyRepository;
+        this.locationRepository = locationRepository;
+        this.categoryRepository = categoryRepository;
         this.jobMapper = jobMapper;
         this.objectMapper = objectMapper;
     }
@@ -125,5 +141,74 @@ public class JobSearchService implements JobSearchImpl {
 
         logger.info("Total jobs saved from all pages: {}", totalJobsSaved);
         return firstPageResponse;
+    }
+
+    /**
+     * Get jobs from database/cache based on search parameters
+     * This method is cached in Redis for 1 hour
+     */
+    @Cacheable(value = "jobSearch", key = "#query + '_' + #location")
+    public JobSearchResponseDto getJobsFromDatabase(String query, String location) {
+        logger.info("Fetching jobs from database for query: {}, location: {}", query, location);
+
+        // Get all jobs from database (you can add filtering later)
+        List<JobEntity> jobEntities = jobRepository.findAll();
+
+        // Convert entities to response DTOs
+        List<JobResponseDto> jobs = jobEntities.stream()
+                .map(this::convertToResponseDto)
+                .collect(Collectors.toList());
+
+        logger.info("Retrieved {} jobs from database", jobs.size());
+
+        return JobSearchResponseDto.builder()
+                .count(jobs.size())
+                .results(jobs)
+                .build();
+    }
+
+    /**
+     * Convert JobEntity to JobResponseDto
+     */
+    private JobResponseDto convertToResponseDto(JobEntity entity) {
+        JobResponseDto dto = JobResponseDto.builder()
+                .id(entity.getId())
+                .externalId(entity.getExternalId())
+                .title(entity.getTitle())
+                .companyId(entity.getCompanyId())
+                .locationId(entity.getLocationId())
+                .categoryId(entity.getCategoryId())
+                .salaryMin(entity.getSalaryMin())
+                .salaryMax(entity.getSalaryMax())
+                .description(entity.getDescription())
+                .jobUrl(entity.getJobUrl())
+                .source(entity.getSource())
+                .createdDate(entity.getCreatedDate() != null ? entity.getCreatedDate().toString() : null)
+                .dateFound(entity.getDateFound() != null ? entity.getDateFound().toString() : null)
+                .applyBy(entity.getApplyBy() != null ? entity.getApplyBy().toString() : null)
+                .build();
+
+        // Populate company name
+        if (entity.getCompanyId() != null) {
+            companyRepository.findById(entity.getCompanyId())
+                    .ifPresent(company -> dto.setCompanyName(company.getName()));
+        }
+
+        // Populate location name
+        if (entity.getLocationId() != null) {
+            locationRepository.findById(entity.getLocationId())
+                    .ifPresent(location -> dto.setLocationName(location.getDisplayName()));
+        }
+
+        // Populate category name
+        if (entity.getCategoryId() != null) {
+            categoryRepository.findById(entity.getCategoryId())
+                    .ifPresent(category -> dto.setCategoryName(category.getName()));
+        }
+
+        // Populate nested objects for frontend compatibility
+        dto.populateNestedObjects();
+
+        return dto;
     }
 }

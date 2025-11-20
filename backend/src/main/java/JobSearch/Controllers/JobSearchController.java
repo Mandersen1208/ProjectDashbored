@@ -1,8 +1,10 @@
 package JobSearch.Controllers;
 
 import DbConnections.DTO.Entities.SavedQuery;
+import DbConnections.DTO.JobSearchResponseDto;
 import DbConnections.Repositories.SavedQueryRepository;
 import JobSearch.Services.Implementations.JobSearchImpl;
+import JobSearch.Services.JobSearchService;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,11 +22,14 @@ public class JobSearchController {
 
     private static final Logger logger = LoggerFactory.getLogger(JobSearchController.class);
     private final JobSearchImpl jobSearchImpl;
+    private final JobSearchService jobSearchService;
     private final SavedQueryRepository savedQueryRepository;
 
     public JobSearchController(JobSearchImpl jobSearchImpl,
+                              JobSearchService jobSearchService,
                               SavedQueryRepository savedQueryRepository) {
         this.jobSearchImpl = jobSearchImpl;
+        this.jobSearchService = jobSearchService;
         this.savedQueryRepository = savedQueryRepository;
     }
 
@@ -32,10 +37,23 @@ public class JobSearchController {
     // JOB SEARCH ENDPOINTS
     // ============================================
 
+    /**
+     * Search for jobs - fetches from Adzuna API and saves to database,
+     * then returns jobs from database (with Redis caching)
+     */
     @GetMapping("/search")
-    public String searchJobs(@RequestParam String query,
-                            @RequestParam String location) {
-        return jobSearchImpl.searchJobs(query, location);
+    public ResponseEntity<JobSearchResponseDto> searchJobs(@RequestParam String query,
+                                                           @RequestParam String location) {
+        logger.info("Search request received: query={}, location={}", query, location);
+
+        // First, fetch new jobs from Adzuna and save to database
+        // This runs in the background and saves jobs
+        jobSearchImpl.searchJobs(query, location);
+
+        // Then, return jobs from database (with Redis caching)
+        JobSearchResponseDto response = jobSearchService.getJobsFromDatabase(query, location);
+
+        return ResponseEntity.ok(response);
     }
 
     // ============================================

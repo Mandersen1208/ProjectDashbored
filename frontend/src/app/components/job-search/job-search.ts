@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ButtonModule } from 'primeng/button';
@@ -6,7 +6,6 @@ import { InputTextModule } from 'primeng/inputtext';
 import { CardModule } from 'primeng/card';
 import { TableModule } from 'primeng/table';
 import { TagModule } from 'primeng/tag';
-import { Ripple } from 'primeng/ripple';
 import { JobSearchService } from '../../services/job-search.service';
 import { SearchParams } from '../../models/search-params.model';
 import { Job } from '../../models/job.model';
@@ -20,8 +19,7 @@ import { Job } from '../../models/job.model';
     InputTextModule,
     CardModule,
     TableModule,
-    TagModule,
-    Ripple
+    TagModule
   ],
   templateUrl: './job-search.html',
   styleUrl: './job-search.scss',
@@ -36,7 +34,10 @@ export class JobSearch {
   loading = false;
   errorMessage = '';
 
-  constructor(private jobSearchService: JobSearchService) {}
+  constructor(
+    private jobSearchService: JobSearchService,
+    private cdr: ChangeDetectorRef
+  ) {}
 
   onSearch(): void {
     if (!this.searchParams.query || !this.searchParams.location) {
@@ -50,18 +51,25 @@ export class JobSearch {
 
     this.jobSearchService.searchJobs(this.searchParams).subscribe({
       next: (response) => {
-        try {
-          const data = JSON.parse(response);
-          this.jobs = data.results || [];
-          this.loading = false;
-        } catch (error) {
-          this.errorMessage = 'Error parsing job results';
-          this.loading = false;
-        }
+        console.log('Response received:', response);
+        console.log('Results array:', response.results);
+        console.log('Results length:', response.results?.length);
+
+        this.jobs = response.results || [];
+        this.loading = false;
+
+        console.log('Jobs assigned:', this.jobs);
+        console.log('Jobs length:', this.jobs.length);
+        console.log('Loading state:', this.loading);
+
+        // Force change detection
+        this.cdr.detectChanges();
       },
       error: (error) => {
-        this.errorMessage = 'Error fetching jobs: ' + error.message;
+        console.error('Error fetching jobs:', error);
+        this.errorMessage = 'An error occurred while fetching jobs. Please try again later.';
         this.loading = false;
+        this.cdr.detectChanges();
       }
     });
   }
