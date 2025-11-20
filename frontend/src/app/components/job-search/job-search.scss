@@ -1,11 +1,35 @@
 .job-search-container {
-  padding: 1rem;
+  padding: 2rem;
   max-width: 1400px;
   margin: 0 auto;
 }
 
-.search-card {
+// Clean white container for search form
+.search-container {
+  background: white;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  padding: 2rem;
   margin-bottom: 2rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+// Clean white container for results
+.results-container {
+  background: white;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  padding: 2rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.results-header {
+  h3 {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #212529;
+  }
 }
 
 .field {

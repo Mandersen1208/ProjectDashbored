@@ -1,5 +1,6 @@
 <div class="job-search-container">
-  <p-card header="Job Search" class="search-card">
+  <!-- Search Form Container -->
+  <div class="search-container">
     <div class="p-fluid">
       <div class="field mb-4">
         <label for="query" class="block mb-2">Job Title / Keywords</label>
@@ -41,14 +42,13 @@
         <i class="pi pi-exclamation-triangle"></i> {{ errorMessage }}
       </div>
     </div>
-  </p-card>
+  </div>
 
-  <p-card *ngIf="jobs.length > 0" class="results-card mt-4">
-    <ng-template pTemplate="header">
-      <div class="card-header">
-        <h3>Search Results ({{ jobs.length }} jobs found)</h3>
-      </div>
-    </ng-template>
+  <!-- Results Container -->
+  <div *ngIf="jobs.length > 0" class="results-container">
+    <div class="results-header mb-3">
+      <h3>Search Results ({{ jobs.length }} jobs found)</h3>
+    </div>
 
     <p-table
       [value]="jobs"
@@ -114,5 +114,5 @@
         </tr>
       </ng-template>
     </p-table>
-  </p-card>
+  </div>
 </div>

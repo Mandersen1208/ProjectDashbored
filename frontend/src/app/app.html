@@ -1,12 +1,20 @@
 <div class="app-container">
-  <p-menubar [model]="menuItems">
-    <ng-template pTemplate="start">
-      <div class="app-title">
-        <i class="pi pi-briefcase" style="font-size: 1.5rem; margin-right: 0.5rem;"></i>
-        <span>{{ title() }}</span>
-      </div>
+  <p-toolbar>
+    <ng-template #start>
+      <p-button icon="pi pi-plus" class="mr-2" [text]="true" severity="secondary" />
+      <p-button icon="pi pi-print" class="mr-2" [text]="true" severity="secondary" />
+      <p-button icon="pi pi-upload" [text]="true" severity="secondary" />
     </ng-template>
-  </p-menubar>
+    <ng-template #center>
+      <p-iconfield iconPosition="left">
+        <p-inputicon class="pi pi-search" />
+        <input type="text" pInputText placeholder="Search" />
+      </p-iconfield>
+    </ng-template>
+    <ng-template #end>
+      <p-splitbutton label="Save" [model]="items" />
+    </ng-template>
+  </p-toolbar>
 
   <main class="main-content">
     <app-job-search></app-job-search>
