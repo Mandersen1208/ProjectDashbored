@@ -1,0 +1,14 @@
+<div class="app-container">
+  <p-menubar [model]="menuItems">
+    <ng-template pTemplate="start">
+      <div class="app-title">
+        <i class="pi pi-briefcase" style="font-size: 1.5rem; margin-right: 0.5rem;"></i>
+        <span>{{ title() }}</span>
+      </div>
+    </ng-template>
+  </p-menubar>
+
+  <main class="main-content">
+    <app-job-search></app-job-search>
+  </main>
+</div>
