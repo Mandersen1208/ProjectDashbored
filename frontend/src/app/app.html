@@ -1,21 +1,16 @@
 <div class="app-container">
   <p-toolbar>
     <ng-template #start>
-      <p-button icon="pi pi-plus" class="mr-2" [text]="true" severity="secondary" />
-      <p-button icon="pi pi-print" class="mr-2" [text]="true" severity="secondary" />
-      <p-button icon="pi pi-upload" [text]="true" severity="secondary" />
+      <h3 class="m-0">Project Dashboard</h3>
     </ng-template>
     <ng-template #center>
-      <p-iconfield iconPosition="left">
         <p-inputicon class="pi pi-search" />
         <input type="text" pInputText placeholder="Search" />
-      </p-iconfield>
     </ng-template>
     <ng-template #end>
-      <p-splitbutton label="Save" [model]="items" />
+      <p-button label="Save" severity="contrast" size="small"/>
     </ng-template>
   </p-toolbar>
-
   <main class="main-content">
     <app-job-search></app-job-search>
   </main>

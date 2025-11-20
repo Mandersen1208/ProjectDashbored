@@ -1,16 +1,16 @@
 # Stage 1: Build the Angular application
 FROM node:20-alpine AS build
 
-WORKDIR /app/frontend
+WORKDIR /app
 
 # Copy package files
-COPY frontend/package*.json ./
+COPY package*.json ./
 
 # Install dependencies
 RUN npm ci --legacy-peer-deps
 
 # Copy source code
-COPY frontend/ ./
+COPY . ./
 
 # Build the application for production
 RUN npm run build
@@ -19,10 +19,10 @@ RUN npm run build
 FROM nginx:alpine
 
 # Copy custom nginx config
-COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 # Copy built application from build stage
-COPY --from=build /app/frontend/dist/frontend/browser /usr/share/nginx/html
+COPY --from=build /app/dist/frontend/browser /usr/share/nginx/html
 
 # Expose port 80
 EXPOSE 80
