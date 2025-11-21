@@ -44,6 +44,9 @@ public class SavedQuery {
 
     @Column(name = "last_run_at")
     private LocalDateTime lastRunAt;
+    @Column(name = "distance")
+    private int distance;
+    @ManyToOne(fetch = FetchType.LAZY)
 
     @PrePersist
     protected void onCreate() {

@@ -102,6 +102,7 @@ CREATE TABLE saved_queries (
     id BIGSERIAL PRIMARY KEY,
     query VARCHAR(255) NOT NULL,
     location VARCHAR(255) NOT NULL,
+    distance INTEGER DEFAULT 25,
     results_per_page INTEGER DEFAULT 100,
     full_time INTEGER DEFAULT 1,
     excluded_terms VARCHAR(500),

@@ -34,4 +34,9 @@ public class SearchParamsDto {
     @Builder.Default
     private int page = 1;
 
+    @Min(value = 0, message = "Distance must be at least 0")
+    @Max(value = 100, message = "Distance cannot exceed 100")
+    @Builder.Default
+    private int distance = 25;
+
 }

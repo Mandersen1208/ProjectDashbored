@@ -9,12 +9,12 @@ import DbConnections.Repositories.CompanyRepository;
 import DbConnections.Repositories.JobRepository;
 import DbConnections.Repositories.LocationRepository;
 import DbConnections.Repositories.CategoryRepository;
-import JobSearch.Clients.AdzunaClient;
 import DbConnections.DTO.SearchParamsDto;
 import JobSearch.Services.Implementations.JobSearchImpl;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import JobSearch.Clients.AdzunaClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cache.annotation.Cacheable;
@@ -61,7 +61,7 @@ public class JobSearchService implements JobSearchImpl {
 
     @Override
     @Transactional
-    public String searchJobs(String query, String location) {
+    public String searchJobs(String query, String location, int distance) {
         // Number of pages to fetch from Adzuna API (default to 5 if not specified)
         int numberOfPages = 5;
         int totalJobsSaved = 0;
@@ -71,6 +71,7 @@ public class JobSearchService implements JobSearchImpl {
             SearchParamsDto params = SearchParamsDto.builder()
                     .query(query)
                     .location(location)
+                    .distance(distance)
                     .page(page)
                     .build();
 

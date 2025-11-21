@@ -1,6 +1,7 @@
 package JobSearch.Services;
 
 import DbConnections.DTO.Entities.SavedQuery;
+import DbConnections.DTO.SearchParamsDto;
 import DbConnections.Repositories.SavedQueryRepository;
 import JobSearch.Services.Implementations.JobSearchImpl;
 import org.slf4j.Logger;
@@ -24,9 +25,7 @@ public class ScheduledJobFetchService {
     private final RedisTemplate<String, Object> redisTemplate;
     private final SavedQueryRepository savedQueryRepository;
 
-    public ScheduledJobFetchService(JobSearchImpl jobSearchService,
-                                    RedisTemplate<String, Object> redisTemplate,
-                                    SavedQueryRepository savedQueryRepository) {
+    public ScheduledJobFetchService(JobSearchImpl jobSearchService, RedisTemplate<String, Object> redisTemplate, SavedQueryRepository savedQueryRepository) {
         this.jobSearchService = jobSearchService;
         this.redisTemplate = redisTemplate;
         this.savedQueryRepository = savedQueryRepository;
@@ -70,7 +69,7 @@ public class ScheduledJobFetchService {
             logger.info("Fetching jobs for query: '{}', location: '{}'", savedQuery.getQuery(), savedQuery.getLocation());
 
             // This will fetch multiple pages and save to database
-            String response = jobSearchService.searchJobs(savedQuery.getQuery(), savedQuery.getLocation());
+            String response = jobSearchService.searchJobs(savedQuery.getQuery(), savedQuery.getLocation(), savedQuery.getDistance());
 
             // Parse response and cache individual job IDs with their URLs
             cacheJobUrls(response, savedQuery);
@@ -79,11 +78,9 @@ public class ScheduledJobFetchService {
             savedQuery.setLastRunAt(LocalDateTime.now());
             savedQueryRepository.save(savedQuery);
 
-            logger.info("Completed caching jobs for query: '{}', location: '{}'",
-                    savedQuery.getQuery(), savedQuery.getLocation());
+            logger.info("Completed caching jobs for query: '{}', location: '{}'", savedQuery.getQuery(), savedQuery.getLocation());
         } catch (Exception e) {
-            logger.error("Error fetching jobs for query: '{}', location: '{}' - {}",
-                    savedQuery.getQuery(), savedQuery.getLocation(), e.getMessage(), e);
+            logger.error("Error fetching jobs for query: '{}', location: '{}' - {}", savedQuery.getQuery(), savedQuery.getLocation(), e.getMessage(), e);
         }
     }
 

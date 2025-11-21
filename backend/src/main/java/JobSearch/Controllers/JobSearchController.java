@@ -4,12 +4,13 @@ import DbConnections.DTO.Entities.SavedQuery;
 import DbConnections.DTO.JobSearchResponseDto;
 import DbConnections.Repositories.SavedQueryRepository;
 import JobSearch.Services.Implementations.JobSearchImpl;
-import JobSearch.Services.JobSearchService;
 import jakarta.validation.Valid;
+import JobSearch.Services.JobSearchService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.lang.Nullable;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
@@ -43,12 +44,13 @@ public class JobSearchController {
      */
     @GetMapping("/search")
     public ResponseEntity<JobSearchResponseDto> searchJobs(@RequestParam String query,
-                                                           @RequestParam String location) {
+                                                           @RequestParam String location,
+                                                           @RequestParam int distance) {
         logger.info("Search request received: query={}, location={}", query, location);
 
         // First, fetch new jobs from Adzuna and save to database
         // This runs in the background and saves jobs
-        jobSearchImpl.searchJobs(query, location);
+        jobSearchImpl.searchJobs(query, location, distance);
 
         // Then, return jobs from database (with Redis caching)
         JobSearchResponseDto response = jobSearchService.getJobsFromDatabase(query, location);
