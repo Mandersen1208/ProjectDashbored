@@ -1,0 +1,72 @@
+.app-container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+::ng-deep {
+  .p-toolbar {
+    background: white;
+    border: none;
+    border-bottom: 1px solid #e5e7eb;
+    border-radius: 0;
+    padding: 0.75rem 1.5rem;
+  }
+
+  // Style the icon buttons
+  .p-toolbar .p-button.p-button-text.p-button-secondary {
+    color: #6b7280;
+
+    &:hover {
+      background: #f3f4f6;
+      color: #374151;
+    }
+  }
+
+  // Style the split button to be black
+  .p-toolbar .p-splitbutton {
+    .p-button {
+      background: #000;
+      border-color: #000;
+
+      &:hover {
+        background: #1f2937;
+        border-color: #1f2937;
+      }
+    }
+  }
+
+  // Margin utility class
+  .mr-2 {
+    margin-right: 0.5rem;
+  }
+
+  // Style the search input
+  .p-iconfield input {
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    padding: 0.5rem 0.75rem 0.5rem 2.5rem;
+
+    &:focus {
+      outline: none;
+      border-color: #3B82F6;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+  }
+}
+
+.main-content {
+  flex: 1;
+  padding: 2rem;
+  background-color: #f8f9fa;
+}
+
+@media (max-width: 768px) {
+  ::ng-deep .p-toolbar {
+    padding: 0.5rem 1rem;
+  }
+
+  .main-content {
+    padding: 1rem;
+  }
+}
