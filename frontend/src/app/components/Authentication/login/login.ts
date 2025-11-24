@@ -5,8 +5,8 @@ import { DialogModule } from 'primeng/dialog';
 import { InputTextModule } from 'primeng/inputtext';
 import { ButtonModule } from 'primeng/button';
 import { PasswordModule } from 'primeng/password';
-import { AuthService } from '../../services/auth.service';
-import { LoginRequest } from '../../models/user.model';
+import { AuthService } from '../../../services/auth.service';
+import { LoginRequest } from '../../../models/user.model';
 
 @Component({
   selector: 'app-login',

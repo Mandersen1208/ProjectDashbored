@@ -1,0 +1,22 @@
+# Local Configuration Template
+# Copy this file to local.properties and fill in your actual values
+# local.properties is git-ignored and will not be committed
+
+# Adzuna API Configuration
+# Get your API credentials from: https://developer.adzuna.com/
+adzuna.base-url=https://api.adzuna.com/v1/api/jobs/us/search/1
+adzuna.api-id=YOUR_ADZUNA_API_ID_HERE
+adzuna.api-key=YOUR_ADZUNA_API_KEY_HERE
+
+# Database Configuration
+# Default local PostgreSQL settings (update if needed)
+spring.datasource.url=jdbc:postgresql://localhost:5433/JobHunterDb2
+spring.datasource.username=admin
+spring.datasource.password=password
+
+# JWT Configuration
+# Generate a secure secret key for production using:
+# openssl rand -base64 64
+app.jwt.secret=YOUR_JWT_SECRET_KEY_HERE
+# JWT expiration time in milliseconds (24 hours = 86400000 ms)
+app.jwt.expiration-ms=86400000
