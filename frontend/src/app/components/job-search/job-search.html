@@ -89,7 +89,7 @@
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let job of jobs">
+          <tr *ngFor="let job of paginatedJobs">
             <td>
               <strong>{{ job.title }}</strong>
             </td>
@@ -124,6 +124,54 @@
           </tr>
         </tbody>
       </table>
+    </div>
+
+    <!-- Pagination Controls -->
+    <div class="pagination-container">
+      <div class="pagination-info">
+        <span>
+          Showing {{ (currentPage - 1) * pageSize + 1 }} to
+          {{ Math.min(currentPage * pageSize, jobs.length) }} of
+          {{ jobs.length }} results
+        </span>
+        <div class="page-size-selector">
+          <label for="pageSize">Rows per page:</label>
+          <select id="pageSize" [value]="pageSize" (change)="changePageSize($event)">
+            <option *ngFor="let size of pageSizeOptions" [value]="size">{{ size }}</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="pagination-buttons">
+        <button
+          (click)="previousPage()"
+          [disabled]="currentPage === 1"
+          class="pagination-button pagination-nav"
+        >
+          <i class="pi pi-chevron-left"></i>
+          <span class="pagination-label">Previous</span>
+        </button>
+
+        <button
+          *ngFor="let page of visiblePages"
+          (click)="isEllipsis(page) ? null : goToPage($any(page))"
+          [disabled]="isEllipsis(page)"
+          [class.active]="page === currentPage"
+          [class.ellipsis]="isEllipsis(page)"
+          class="pagination-button page-number"
+        >
+          {{ page }}
+        </button>
+
+        <button
+          (click)="nextPage()"
+          [disabled]="currentPage === totalPages"
+          class="pagination-button pagination-nav"
+        >
+          <span class="pagination-label">Next</span>
+          <i class="pi pi-chevron-right"></i>
+        </button>
+      </div>
     </div>
   </div>
 
