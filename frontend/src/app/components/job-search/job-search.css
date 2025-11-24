@@ -1,0 +1,286 @@
+/* Job Search Container */
+.job-search-container {
+  max-width: 64rem;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+
+/* Search Card */
+.search-card {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(8px);
+  border-radius: 1rem;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  padding: 2rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.search-card h1 {
+  margin-bottom: 1.5rem;
+  background: linear-gradient(to right, var(--purple-600), var(--cyan-600));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Form Grid */
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+@media (min-width: 768px) {
+  .form-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Form Fields */
+.form-field {
+  display: flex;
+  flex-direction: column;
+}
+
+.form-field label {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: #1f2937;
+}
+
+.form-field input,
+.form-field select {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 2px solid var(--purple-200);
+  border-radius: 0.75rem;
+  outline: none;
+  transition: all 0.2s;
+  background: white;
+}
+
+.form-field input:focus,
+.form-field select:focus {
+  ring: 2px;
+  ring-color: var(--purple-600);
+  border-color: transparent;
+}
+
+.form-field select {
+  appearance: none;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+  background-position: right 0.5rem center;
+  background-repeat: no-repeat;
+  background-size: 1.5em 1.5em;
+  padding-right: 2.5rem;
+}
+
+/* Button Container */
+.button-container {
+  display: flex;
+  justify-content: center;
+}
+
+@media (min-width: 768px) {
+  .button-container {
+    justify-content: flex-start;
+  }
+}
+
+/* Search Button */
+.search-button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: linear-gradient(to right, var(--purple-600), var(--cyan-600));
+  color: white;
+  padding: 0.75rem 2rem;
+  border-radius: 0.75rem;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  transform: scale(1);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+.search-button:hover:not(:disabled) {
+  background: linear-gradient(to right, var(--purple-700), var(--cyan-700));
+  transform: scale(1.05);
+}
+
+.search-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Error Message */
+.error-message {
+  margin-top: 1rem;
+  background: #fef2f2;
+  border: 2px solid #fecaca;
+  border-radius: 0.75rem;
+  padding: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #b91c1c;
+}
+
+/* Loading State */
+.loading-card {
+  margin-top: 2rem;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(8px);
+  border-radius: 1rem;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  padding: 3rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.loading-spinner-container {
+  position: relative;
+}
+
+.loading-spinner-glow {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to right, var(--purple-600), var(--cyan-600));
+  border-radius: 9999px;
+  filter: blur(1.5rem);
+  opacity: 0.5;
+}
+
+.loading-spinner {
+  position: relative;
+  font-size: 4rem;
+  color: var(--purple-600);
+  margin-bottom: 1rem;
+}
+
+.loading-text {
+  color: #374151;
+  margin-top: 1rem;
+}
+
+/* Results Card */
+.results-card {
+  margin-top: 2rem;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(8px);
+  border-radius: 1rem;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  padding: 2rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.results-card h2 {
+  margin-bottom: 1.5rem;
+  background: linear-gradient(to right, var(--purple-600), var(--cyan-600));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Results Table */
+.results-table-container {
+  overflow-x: auto;
+}
+
+.results-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.results-table thead tr {
+  border-bottom: 2px solid var(--purple-200);
+}
+
+.results-table th {
+  text-align: left;
+  padding: 1rem;
+  color: #1f2937;
+}
+
+.results-table tbody tr {
+  border-bottom: 1px solid var(--purple-100);
+  transition: background-color 0.2s;
+}
+
+.results-table tbody tr:hover {
+  background-color: var(--purple-50);
+}
+
+.results-table td {
+  padding: 1rem;
+  color: #374151;
+}
+
+.results-table td strong {
+  color: #111827;
+}
+
+/* Source Badge */
+.source-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.875rem;
+  background: linear-gradient(to right, var(--purple-100), rgba(165, 243, 252, 0.5));
+  color: var(--purple-700);
+}
+
+/* View Job Button */
+.view-job-button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--purple-600);
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: color 0.2s;
+  padding: 0;
+}
+
+.view-job-button:hover {
+  color: var(--purple-700);
+}
+
+/* Empty State */
+.empty-state {
+  margin-top: 2rem;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(8px);
+  border-radius: 1rem;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  padding: 3rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  text-align: center;
+}
+
+.empty-state i {
+  font-size: 4rem;
+  color: #d1d5db;
+  margin-bottom: 1rem;
+}
+
+.empty-state h3 {
+  color: #374151;
+  margin-bottom: 0.5rem;
+}
+
+.empty-state p {
+  color: #6b7280;
+}
