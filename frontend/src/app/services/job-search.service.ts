@@ -15,7 +15,8 @@ export class JobSearchService {
   searchJobs(searchParams: SearchParams): Observable<JobSearchResponse> {
     let params = new HttpParams()
       .set('query', searchParams.query)
-      .set('location', searchParams.location);
+      .set('location', searchParams.location)
+      .set('distance', searchParams.distance);
 
     if (searchParams.resultsPerPage) {
       params = params.set('resultsPerPage', searchParams.resultsPerPage.toString());

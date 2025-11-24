@@ -9,12 +9,12 @@ import DbConnections.Repositories.CompanyRepository;
 import DbConnections.Repositories.JobRepository;
 import DbConnections.Repositories.LocationRepository;
 import DbConnections.Repositories.CategoryRepository;
-import JobSearch.Clients.AdzunaClient;
 import DbConnections.DTO.SearchParamsDto;
 import JobSearch.Services.Implementations.JobSearchImpl;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import JobSearch.Clients.AdzunaClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cache.annotation.Cacheable;
@@ -61,16 +61,17 @@ public class JobSearchService implements JobSearchImpl {
 
     @Override
     @Transactional
-    public String searchJobs(String query, String location) {
+    public void searchJobs(String query, String location, int distance) {
         // Number of pages to fetch from Adzuna API (default to 5 if not specified)
         int numberOfPages = 5;
         int totalJobsSaved = 0;
-        String firstPageResponse = null;
+       /* String firstPageResponse = null;*/
 
         for (int page = 1; page <= numberOfPages; page++) {
             SearchParamsDto params = SearchParamsDto.builder()
                     .query(query)
                     .location(location)
+                    .distance(distance)
                     .page(page)
                     .build();
 
@@ -78,11 +79,6 @@ public class JobSearchService implements JobSearchImpl {
 
             ResponseEntity<String> response = adzunaClient.getResponseEntity(params);
             String body = response.getBody();
-
-            // Store first page response to return to client
-            if (page == 1) {
-                firstPageResponse = body;
-            }
 
             if (body == null || body.isEmpty()) {
                 logger.warn("Empty response from Adzuna API on page {}", page);
@@ -95,7 +91,7 @@ public class JobSearchService implements JobSearchImpl {
                 List<JobDto> dtos = new ArrayList<>();
 
                 if (resultsNode.isArray()) {
-                    dtos = objectMapper.convertValue(resultsNode, new TypeReference<List<JobDto>>() {
+                    dtos = objectMapper.convertValue(resultsNode, new TypeReference<>() {
                     });
                 }
 
@@ -140,7 +136,6 @@ public class JobSearchService implements JobSearchImpl {
         }
 
         logger.info("Total jobs saved from all pages: {}", totalJobsSaved);
-        return firstPageResponse;
     }
 
     /**

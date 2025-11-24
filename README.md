@@ -1,6 +1,6 @@
 # ProjectDashbored - Job Hunter Application
 
-A Spring Boot application that aggregates job postings from multiple job search APIs and provides a unified dashboard for job seekers with automated job fetching and Redis caching.
+A full-stack job search application that aggregates job postings from multiple APIs and provides a beautiful, unified dashboard for job seekers. Built with Spring Boot backend and Angular frontend, featuring automated job fetching, persistent storage, and a modern gradient-themed UI.
 
 ## Features
 
@@ -13,11 +13,23 @@ A Spring Boot application that aggregates job postings from multiple job search 
 
 ## Tech Stack
 
+### Backend
 - **Framework**: Spring Boot 3.5.7
 - **Java**: 17
 - **Database**: PostgreSQL 16
 - **Cache**: Redis 7
 - **Build Tool**: Maven
+- **ORM**: Spring Data JPA with Hibernate
+- **Connection Pool**: HikariCP
+
+### Frontend
+- **Framework**: Angular 21.0
+- **UI Library**: PrimeNG 20.3
+- **Styling**: Pure CSS with CSS Variables
+- **Icons**: PrimeIcons
+- **Build Tool**: Angular CLI / Vite
+
+### Infrastructure
 - **Containerization**: Docker & Docker Compose
 
 ## Architecture Overview
@@ -274,6 +286,7 @@ docker-compose up --build -d
 
 ### Running Locally
 
+#### Backend
 1. **Start database and Redis**:
 ```bash
 docker-compose up -d postgres redis
@@ -281,9 +294,28 @@ docker-compose up -d postgres redis
 
 2. **Build and run Spring Boot**:
 ```bash
+cd backend
 ./mvnw clean package -DskipTests
 ./mvnw spring-boot:run
 ```
+
+The backend API will be available at `http://localhost:8080`
+
+#### Frontend
+1. **Install dependencies**:
+```bash
+cd frontend
+npm install --legacy-peer-deps
+```
+
+2. **Start the development server**:
+```bash
+npm start
+```
+
+The frontend will be available at `http://localhost:4200`
+
+**Note**: Make sure the backend is running before starting the frontend.
 
 ## Configuration
 

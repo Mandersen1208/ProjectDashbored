@@ -27,9 +27,9 @@ public abstract class Client {
      */
     public abstract ResponseEntity<String> getResponseEntity(SearchParamsDto searchParamsDto);
 
-    protected void logRequest(String apiName, SearchParamsDto searchParams) {
+    protected void logRequest(SearchParamsDto searchParams) {
         logger.info("Calling {} API - Query: {}, Location: {}",
-                apiName,
+                "AdzunaClient",
                 searchParams.getQuery(),
                 searchParams.getLocation());
     }

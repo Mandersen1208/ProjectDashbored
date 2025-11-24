@@ -43,14 +43,10 @@ public class JobSearchController {
      */
     @GetMapping("/search")
     public ResponseEntity<JobSearchResponseDto> searchJobs(@RequestParam String query,
-                                                           @RequestParam String location) {
+                                                           @RequestParam String location,
+                                                           @RequestParam int distance) {
         logger.info("Search request received: query={}, location={}", query, location);
-
-        // First, fetch new jobs from Adzuna and save to database
-        // This runs in the background and saves jobs
-        jobSearchImpl.searchJobs(query, location);
-
-        // Then, return jobs from database (with Redis caching)
+        jobSearchImpl.searchJobs(query, location, distance);
         JobSearchResponseDto response = jobSearchService.getJobsFromDatabase(query, location);
 
         return ResponseEntity.ok(response);

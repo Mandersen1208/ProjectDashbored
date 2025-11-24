@@ -6,8 +6,8 @@ import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
-import java.net.URI;
 
+import java.net.URI;
 /**
  * Adzuna job search client
  */
@@ -34,13 +34,14 @@ public class AdzunaClient extends Client {
         URI uri = UriComponentsBuilder.fromUri(URI.create(urlWithPage))
                 .queryParam("app_id", apiId)
                 .queryParam("app_key", apiKey)
-                .queryParam("results_per_page", 100)
+                .queryParam("results_per_page", searchParamsDto.getResultsPerPage())
                 .queryParam("what", searchParamsDto.getQuery())
                 .queryParam("where", searchParamsDto.getLocation())
+                .queryParam("distance", searchParamsDto.getDistance())
                 .queryParam("content-type", "application/json")
                 .build()
                 .toUri();
-        logRequest("AdzunaClient", searchParamsDto);
+        logRequest(searchParamsDto);
         return uri;
     }
 
