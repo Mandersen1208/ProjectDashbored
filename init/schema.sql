@@ -129,7 +129,7 @@ CREATE TABLE users (
     password_hash VARCHAR(255) NOT NULL,
     first_name VARCHAR(100),
     last_name VARCHAR(100),
-    role_id BIGINT NOT NULL REFERENCES roles(id) DEFAULT 1, -- FK to roles table
+    role_id BIGINT DEFAULT 1 NOT NULL REFERENCES roles(id), -- FK to roles table, defaults to ROLE_USER
     enabled BOOLEAN DEFAULT TRUE,
     account_non_expired BOOLEAN DEFAULT TRUE,
     account_non_locked BOOLEAN DEFAULT TRUE,
