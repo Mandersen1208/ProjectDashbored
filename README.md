@@ -1,6 +1,6 @@
 # ProjectDashbored - Job Hunter Application
 
-A Spring Boot application that aggregates job postings from multiple job search APIs and provides a unified dashboard for job seekers with automated job fetching and Redis caching.
+A full-stack job search application that aggregates job postings from multiple APIs and provides a beautiful, unified dashboard for job seekers. Built with Spring Boot backend and Angular frontend, featuring automated job fetching, persistent storage, and a modern gradient-themed UI.
 
 ## Features
 
