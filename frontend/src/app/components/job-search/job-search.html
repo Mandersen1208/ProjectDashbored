@@ -1,118 +1,136 @@
-<div class="job--container">
-  <!-- Search Form Container -->
-  <div class="search-container">
-    <div class="p-fluid">
-      <div class="field mb-4">
-        <label for="query" class="block mb-2">Job Title / Keywords</label>
+<div class="job-search-container">
+  <!-- Search Form Card -->
+  <div class="search-card">
+    <h1>Job Search</h1>
+
+    <div class="form-grid">
+      <!-- Job Title / Keywords -->
+      <div class="form-field">
+        <label for="query">Job Category/Title</label>
         <input
           id="query"
           type="text"
-          pInputText
           [(ngModel)]="searchParams.query"
           placeholder="e.g. Software Engineer"
-          class="w-full"
         />
       </div>
 
-      <div class="field mb-4">
-        <label for="location" class="block mb-2">Location</label>
+      <!-- Location -->
+      <div class="form-field">
+        <label for="location">Location</label>
         <input
           id="location"
           type="text"
-          pInputText
           [(ngModel)]="searchParams.location"
           placeholder="e.g. New York, NY"
-          class="w-full"
         />
       </div>
 
-      <div class="field">
-        <p-button
-          label="Search Jobs"
-          icon="pi pi-search"
-          (onClick)="onSearch()"
-          [loading]="loading"
-          severity="primary"
-          [raised]="true"
-          styleClass="w-full"
-        ></p-button>
+      <!-- Distance -->
+      <div class="form-field">
+        <label for="distance">Distance (miles)</label>
+        <select
+          id="distance"
+          [(ngModel)]="searchParams.distance"
+        >
+          <option value="5">5 miles</option>
+          <option value="10">10 miles</option>
+          <option value="15">15 miles</option>
+          <option value="25">25 miles</option>
+          <option value="50">50 miles</option>
+          <option value="100">100 miles</option>
+        </select>
       </div>
+    </div>
 
-      <div *ngIf="errorMessage" class="error-message mt-3">
-        <i class="pi pi-exclamation-triangle"></i> {{ errorMessage }}
-      </div>
+    <!-- Search Button -->
+    <div class="button-container">
+      <button
+        (click)="onSearch()"
+        [disabled]="loading"
+        class="search-button"
+      >
+        <i *ngIf="!loading" class="pi pi-search"></i>
+        <i *ngIf="loading" class="pi pi-spin pi-spinner"></i>
+        {{ loading ? 'Searching...' : 'Search Jobs' }}
+      </button>
+    </div>
+
+    <!-- Error Message -->
+    <div *ngIf="errorMessage" class="error-message">
+      <i class="pi pi-exclamation-triangle"></i>
+      <span>{{ errorMessage }}</span>
     </div>
   </div>
 
-  <!-- Results Container -->
-  <div *ngIf="jobs.length > 0" class="results-container">
-    <div class="results-header mb-3">
-      <h3>Search Results ({{ jobs.length }} jobs found)</h3>
+  <!-- Loading State -->
+  <div *ngIf="loading" class="loading-card">
+    <div class="loading-spinner-container">
+      <div class="loading-spinner-glow"></div>
+      <i class="pi pi-spin pi-spinner loading-spinner"></i>
     </div>
+    <p class="loading-text">Loading results...</p>
+  </div>
 
-    <p-table
-      [value]="jobs"
-      [paginator]="true"
-      [rows]="10"
-      [rowsPerPageOptions]="[10, 25, 50]"
-      [loading]="loading"
-      responsiveLayout="scroll"
-      styleClass="p-datatable-striped"
-    >
-      <ng-template pTemplate="header">
-        <tr>
-          <th pSortableColumn="title">
-            Job Title <p-sortIcon field="title"></p-sortIcon>
-          </th>
-          <th pSortableColumn="companyName">
-            Company <p-sortIcon field="companyName"></p-sortIcon>
-          </th>
-          <th pSortableColumn="locationName">
-            Location <p-sortIcon field="locationName"></p-sortIcon>
-          </th>
-          <th>Salary</th>
-          <th pSortableColumn="source">
-            Source <p-sortIcon field="source"></p-sortIcon>
-          </th>
-          <th>Actions</th>
-        </tr>
-      </ng-template>
+  <!-- Results Table -->
+  <div *ngIf="jobs.length > 0 && !loading" class="results-card">
+    <h2>Search Results ({{ jobs.length }} jobs found)</h2>
 
-      <ng-template pTemplate="body" let-job>
-        <tr>
-          <td>
-            <strong>{{ job.title }}</strong>
-          </td>
-          <td>{{ job.companyName || job.company?.display_name || 'N/A' }}</td>
-          <td>{{ job.locationName || job.location?.display_name || 'N/A' }}</td>
-          <td>
-            <span *ngIf="job.salaryMin && job.salaryMax">
-              ${{ job.salaryMin | number }} - ${{ job.salaryMax | number }}
-            </span>
-            <span *ngIf="!job.salaryMin || !job.salaryMax">
-              Not specified
-            </span>
-          </td>
-          <td>
-            <p-tag [value]="job.source" severity="info"></p-tag>
-          </td>
-          <td>
-            <p-button
-              icon="pi pi-external-link"
-              label="View Job"
-              (onClick)="openJobUrl(job.jobUrl || job.redirect_url)"
-              size="small"
-              [text]="true"
-            ></p-button>
-          </td>
-        </tr>
-      </ng-template>
+    <div class="results-table-container">
+      <table class="results-table">
+        <thead>
+          <tr>
+            <th>Job Title</th>
+            <th>Company</th>
+            <th>Location</th>
+            <th>Salary</th>
+            <th>Source</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let job of jobs">
+            <td>
+              <strong>{{ job.title }}</strong>
+            </td>
+            <td>
+              {{ job.companyName || job.company?.display_name || 'N/A' }}
+            </td>
+            <td>
+              {{ job.locationName || job.location?.display_name || 'N/A' }}
+            </td>
+            <td>
+              <span *ngIf="job.salaryMin && job.salaryMax">
+                ${{ job.salaryMin}} - ${{ job.salaryMax}}
+              </span>
+              <span *ngIf="!job.salaryMin || !job.salaryMax">
+                Not specified
+              </span>
+            </td>
+            <td>
+              <span class="source-badge">
+                {{ job.source }}
+              </span>
+            </td>
+            <td>
+              <button
+                (click)="openJobUrl(job.jobUrl || job.redirect_url)"
+                class="view-job-button"
+              >
+                <i class="pi pi-external-link"></i>
+                View Job
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
 
-      <ng-template pTemplate="emptymessage">
-        <tr>
-          <td colspan="6" class="text-center">No jobs found. Try a different search.</td>
-        </tr>
-      </ng-template>
-    </p-table>
+  <!-- Empty State -->
+  <div *ngIf="jobs.length === 0 && !loading && searchParams.query" class="empty-state">
+    <i class="pi pi-search"></i>
+    <h3>No jobs found</h3>
+    <p>Try adjusting your search criteria</p>
   </div>
 </div>

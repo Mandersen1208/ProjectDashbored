@@ -1,4 +1,4 @@
-import { Component, ChangeDetectorRef } from '@angular/core';
+import { Component, ChangeDetectorRef, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ButtonModule } from 'primeng/button';
@@ -21,15 +21,18 @@ import { Job } from '../../models/job.model';
     TableModule,
     TagModule
   ],
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
   templateUrl: './job-search.html',
-  styleUrl: './job-search.scss',
+  styleUrl: './job-search.css',
 })
 export class JobSearch {
   searchParams: SearchParams = {
     query: '',
-    location: ''
+    location: '',
+    distance: 25
   };
 
+  distances: number[] = [5, 10, 15, 20, 25, 30, 40, 50];
   jobs: Job[] = [];
   loading = false;
   errorMessage = '';

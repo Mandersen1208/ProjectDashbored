@@ -4,4 +4,5 @@ export interface SearchParams {
   resultsPerPage?: number;
   fullTime?: number;
   excludedTerms?: string;
+  distance: number;
 }

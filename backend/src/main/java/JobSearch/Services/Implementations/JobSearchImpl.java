@@ -5,5 +5,5 @@ package JobSearch.Services.Implementations;
  */
 public interface JobSearchImpl {
 
-    String searchJobs(String query, String location, int distance);
+    void searchJobs(String query, String location, int distance);
 }

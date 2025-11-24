@@ -61,11 +61,11 @@ public class JobSearchService implements JobSearchImpl {
 
     @Override
     @Transactional
-    public String searchJobs(String query, String location, int distance) {
+    public void searchJobs(String query, String location, int distance) {
         // Number of pages to fetch from Adzuna API (default to 5 if not specified)
         int numberOfPages = 5;
         int totalJobsSaved = 0;
-        String firstPageResponse = null;
+       /* String firstPageResponse = null;*/
 
         for (int page = 1; page <= numberOfPages; page++) {
             SearchParamsDto params = SearchParamsDto.builder()
@@ -80,11 +80,6 @@ public class JobSearchService implements JobSearchImpl {
             ResponseEntity<String> response = adzunaClient.getResponseEntity(params);
             String body = response.getBody();
 
-            // Store first page response to return to client
-            if (page == 1) {
-                firstPageResponse = body;
-            }
-
             if (body == null || body.isEmpty()) {
                 logger.warn("Empty response from Adzuna API on page {}", page);
                 continue;
@@ -96,7 +91,7 @@ public class JobSearchService implements JobSearchImpl {
                 List<JobDto> dtos = new ArrayList<>();
 
                 if (resultsNode.isArray()) {
-                    dtos = objectMapper.convertValue(resultsNode, new TypeReference<List<JobDto>>() {
+                    dtos = objectMapper.convertValue(resultsNode, new TypeReference<>() {
                     });
                 }
 
@@ -141,7 +136,6 @@ public class JobSearchService implements JobSearchImpl {
         }
 
         logger.info("Total jobs saved from all pages: {}", totalJobsSaved);
-        return firstPageResponse;
     }
 
     /**

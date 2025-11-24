@@ -22,7 +22,7 @@ import { MenuItem } from 'primeng/api';
     InputIconModule
   ],
   templateUrl: './app.html',
-  styleUrl: './app.scss'
+  styleUrl: './app.css'
 })
 export class App {
   protected readonly title = signal('ProjectDashbored - Job Search');
