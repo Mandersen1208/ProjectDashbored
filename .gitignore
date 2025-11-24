@@ -31,3 +31,8 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Sensitive Configuration Files ###
+# Local properties containing API keys and credentials
+**/local.properties
+local.properties
