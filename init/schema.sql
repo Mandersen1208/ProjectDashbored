@@ -113,6 +113,42 @@ CREATE TABLE saved_queries (
     UNIQUE (query, location)
 );
 
+-- Roles table (keep this for role definitions)
+CREATE TABLE roles (
+    id BIGSERIAL PRIMARY KEY,
+    name VARCHAR(50) NOT NULL UNIQUE,
+    description VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Users table with role_id foreign key (much simpler!)
+CREATE TABLE users (
+    id BIGSERIAL PRIMARY KEY,
+    username VARCHAR(50) NOT NULL UNIQUE,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    password_hash VARCHAR(255) NOT NULL,
+    first_name VARCHAR(100),
+    last_name VARCHAR(100),
+    role_id BIGINT NOT NULL REFERENCES roles(id) DEFAULT 1, -- FK to roles table
+    enabled BOOLEAN DEFAULT TRUE,
+    account_non_expired BOOLEAN DEFAULT TRUE,
+    account_non_locked BOOLEAN DEFAULT TRUE,
+    credentials_non_expired BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_login TIMESTAMP
+);
+
+-- Refresh tokens table (unchanged)
+CREATE TABLE refresh_tokens (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
+    token VARCHAR(512) NOT NULL UNIQUE,
+    expiry_date TIMESTAMP NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    revoked BOOLEAN DEFAULT FALSE
+);
+
 -- ============================================
 -- INDEXES
 -- ============================================
@@ -123,6 +159,11 @@ CREATE INDEX idx_jobs_date_found ON jobs(date_found);
 CREATE INDEX idx_applications_job ON applications(job_id);
 CREATE INDEX idx_applications_status ON applications(status);
 CREATE INDEX idx_saved_queries_active ON saved_queries(is_active);
+CREATE INDEX idx_users_username ON users(username);
+CREATE INDEX idx_users_email ON users(email);
+CREATE INDEX idx_users_role ON users(role_id);
+CREATE INDEX idx_refresh_tokens_user ON refresh_tokens(user_id);
+CREATE INDEX idx_refresh_tokens_token ON refresh_tokens(token);
 
 -- ============================================
 -- TRIGGERS
@@ -164,3 +205,24 @@ FROM jobs j
     LEFT JOIN locations l ON j.location_id = l.id
     LEFT JOIN categories cat ON j.category_id = cat.id
     LEFT JOIN applications a ON j.id = a.job_id;
+
+-- ============================================
+-- SEED DATA
+-- ============================================
+
+-- Insert default roles
+INSERT INTO roles (name, description) VALUES
+    ('ROLE_USER', 'Standard user with basic access'),
+    ('ROLE_ADMIN', 'Administrator with full access');
+
+-- Insert default admin user (password: admin123)
+-- BCrypt hash generated with strength 10: $2a$10$slYQmyNdGzTn7ZLBXBChFOC9f6kFjAqPhccnP6DxlWXx2lPk1C3G6
+INSERT INTO users (username, email, password_hash, first_name, last_name, role_id)
+VALUES (
+    'admin',
+    'admin@projectdashbored.com',
+    '$2a$10$slYQmyNdGzTn7ZLBXBChFOC9f6kFjAqPhccnP6DxlWXx2lPk1C3G6',
+    'System',
+    'Administrator',
+    (SELECT id FROM roles WHERE name = 'ROLE_ADMIN')
+);
