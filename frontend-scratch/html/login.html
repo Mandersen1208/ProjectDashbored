@@ -1,0 +1,75 @@
+<p-dialog
+  [(visible)]="visible"
+  (onHide)="onDialogHide()"
+  [modal]="true"
+  [dismissableMask]="true"
+  [closable]="true"
+  [style]="{width: '450px'}"
+  [breakpoints]="{ '768px': '95vw' }"
+  styleClass="login-dialog">
+
+  <ng-template pTemplate="header">
+    <div class="dialog-header">
+      <h2>Welcome Back</h2>
+      <p>Please sign in to continue</p>
+    </div>
+  </ng-template>
+
+  <div class="login-form">
+    <!-- Error Message -->
+    <div class="error-message" *ngIf="errorMessage">
+      <i class="pi pi-exclamation-triangle"></i>
+      <span>{{ errorMessage }}</span>
+    </div>
+
+    <!-- Username Field -->
+    <div class="form-field">
+      <label for="username">Username</label>
+      <input
+        pInputText
+        id="username"
+        [(ngModel)]="credentials.username"
+        (keypress)="onKeyPress($event)"
+        [disabled]="loading"
+        placeholder="Enter your username"
+        autocomplete="username"
+        class="w-full" />
+    </div>
+
+    <!-- Password Field -->
+    <div class="form-field">
+      <label for="password">Password</label>
+      <p-password
+        [(ngModel)]="credentials.password"
+        (keypress)="onKeyPress($event)"
+        [disabled]="loading"
+        [feedback]="false"
+        [toggleMask]="true"
+        placeholder="Enter your password"
+        inputId="password"
+        styleClass="w-full">
+      </p-password>
+    </div>
+
+    <!-- Forgot Password Link -->
+    <div class="forgot-password">
+      <a href="#" class="text-link">Forgot password?</a>
+    </div>
+
+    <!-- Login Button -->
+    <button
+      type="button"
+      label="Sign In"
+      [loading]="loading"
+      (click)="onLogin()"
+      [disabled]="loading || !credentials.username || !credentials.password"
+      class="login-button w-full">
+    </button>
+
+    <!-- Sign Up Link -->
+    <div class="signup-link">
+      <span>Don't have an account? </span>
+      <a href="#" class="text-link">Sign up</a>
+    </div>
+  </div>
+</p-dialog>

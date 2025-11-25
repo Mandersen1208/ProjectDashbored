@@ -1,0 +1,42 @@
+<div class="app-container">
+  <p-toolbar>
+    <ng-template #start>
+      <h3 class="m-0">Project Dashboard</h3>
+    </ng-template>
+
+    <ng-template #end>
+      <div class="toolbar-actions">
+        @if (authService.isAuthenticated()) {
+          <span class="user-welcome">Welcome, {{ authService.getUser()?.username }}!</span>
+          <button
+            pButton
+            type="button"
+            label="Logout"
+            icon="pi pi-sign-out"
+            (click)="onLogout()"
+            class="p-button-outlined p-button-secondary">
+          </button>
+        } @else {
+          <button
+            pButton
+            type="button"
+            label="Login"
+            icon="pi pi-sign-in"
+            (click)="showLoginModal()"
+            class="p-button-outlined">
+          </button>
+        }
+      </div>
+    </ng-template>
+  </p-toolbar>
+
+  <main class="main-content">
+    <app-job-search></app-job-search>
+  </main>
+
+  <!-- Login Modal -->
+  <app-login
+    [(visible)]="isLoginModalVisible"
+    (loginSuccess)="onLoginSuccess()">
+  </app-login>
+</div>
