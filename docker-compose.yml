@@ -68,11 +68,13 @@ services:
   frontend:
     container_name: jobhunter-frontend
     build:
-      context: ./frontend
+      context: ./project-dashboard-frontend
       dockerfile: Dockerfile
+      args:
+        - VITE_API_BASE_URL=http://localhost:8080
     restart: unless-stopped
     ports:
-      - "4200:80"
+      - "3000:80"
     depends_on:
       - app
     networks:

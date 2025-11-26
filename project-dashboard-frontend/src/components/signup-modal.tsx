@@ -1,5 +1,6 @@
-import { X, Mail, Lock, User } from "lucide-react";
+import { X, Mail, Lock, User, Loader2 } from "lucide-react";
 import { useState } from "react";
+import { api } from "../services/api";
 
 interface SignupModalProps {
   isOpen: boolean;
@@ -9,23 +10,58 @@ interface SignupModalProps {
 }
 
 export function SignupModal({ isOpen, onClose, onSignup, onSwitchToLogin }: SignupModalProps) {
-  const [name, setName] = useState("");
+  const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
     if (password !== confirmPassword) {
-      alert("Passwords don't match!");
+      setError("Passwords don't match!");
       return;
     }
-    console.log("Signup attempt:", { name, email, password });
-    // Add your signup logic here
-    onSignup();
-    onClose();
+
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters long");
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await api.signup({
+        username,
+        email,
+        password,
+        firstName,
+        lastName,
+      });
+
+      console.log("Signup successful:", response.user);
+      onSignup();
+      onClose();
+      // Reset form
+      setUsername("");
+      setEmail("");
+      setFirstName("");
+      setLastName("");
+      setPassword("");
+      setConfirmPassword("");
+    } catch (err: any) {
+      console.error("Signup error:", err);
+      setError(err.response?.data?.message || "Signup failed. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -45,21 +81,60 @@ export function SignupModal({ isOpen, onClose, onSignup, onSwitchToLogin }: Sign
           <p className="text-center text-white/90 mt-2">Join us to start your job search</p>
         </div>
 
+        {/* Error Message */}
+        {error && (
+          <div className="mx-6 mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+            {error}
+          </div>
+        )}
+
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div>
             <label className="block mb-2 text-gray-700">
               <User className="w-4 h-4 inline mr-2" />
-              Full Name
+              Username
             </label>
             <input
               type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="John Doe"
-              className="w-full px-4 py-3 border-2 border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="johndoe"
+              className="w-full px-4 py-3 border-2 border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               required
+              disabled={isLoading}
+              minLength={3}
             />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block mb-2 text-gray-700">
+                First Name
+              </label>
+              <input
+                type="text"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                placeholder="John"
+                className="w-full px-4 py-3 border-2 border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={isLoading}
+              />
+            </div>
+
+            <div>
+              <label className="block mb-2 text-gray-700">
+                Last Name
+              </label>
+              <input
+                type="text"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                placeholder="Doe"
+                className="w-full px-4 py-3 border-2 border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={isLoading}
+              />
+            </div>
           </div>
 
           <div>
@@ -72,8 +147,9 @@ export function SignupModal({ isOpen, onClose, onSignup, onSwitchToLogin }: Sign
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="your.email@example.com"
-              className="w-full px-4 py-3 border-2 border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+              className="w-full px-4 py-3 border-2 border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               required
+              disabled={isLoading}
             />
           </div>
 
@@ -87,9 +163,12 @@ export function SignupModal({ isOpen, onClose, onSignup, onSwitchToLogin }: Sign
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
-              className="w-full px-4 py-3 border-2 border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+              className="w-full px-4 py-3 border-2 border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               required
+              disabled={isLoading}
+              minLength={6}
             />
+            <p className="text-xs text-gray-500 mt-1">Minimum 6 characters</p>
           </div>
 
           <div>
@@ -102,16 +181,25 @@ export function SignupModal({ isOpen, onClose, onSignup, onSwitchToLogin }: Sign
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               placeholder="••••••••"
-              className="w-full px-4 py-3 border-2 border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+              className="w-full px-4 py-3 border-2 border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               required
+              disabled={isLoading}
             />
           </div>
 
           <button
             type="submit"
-            className="w-full bg-gradient-to-r from-purple-600 to-cyan-600 hover:from-purple-700 hover:to-cyan-700 text-white py-3 rounded-xl transition-all transform hover:scale-105 shadow-lg"
+            disabled={isLoading}
+            className="w-full bg-gradient-to-r from-purple-600 to-cyan-600 hover:from-purple-700 hover:to-cyan-700 text-white py-3 rounded-xl transition-all transform hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-2"
           >
-            Sign Up
+            {isLoading ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" />
+                Creating Account...
+              </>
+            ) : (
+              "Sign Up"
+            )}
           </button>
 
           <div className="text-center mt-4">

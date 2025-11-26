@@ -3,6 +3,7 @@ package Authentication.Controllers;
 import Authentication.DTO.LoginRequest;
 import Authentication.DTO.LoginResponse;
 import Authentication.DTO.MessageResponse;
+import Authentication.DTO.SignupRequest;
 import Authentication.Services.AuthenticationService;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
@@ -20,7 +21,7 @@ import org.springframework.web.bind.annotation.*;
  */
 @RestController
 @RequestMapping("/api/auth")
-@CrossOrigin(origins = {"http://localhost:4200"}, maxAge = 3600, allowCredentials = "true")
+@CrossOrigin(origins = {"http://localhost:3000", "http://localhost:4200", "http://localhost:5173"}, maxAge = 3600, allowCredentials = "true")
 public class AuthenticationController {
     private static final Logger logger = LoggerFactory.getLogger(AuthenticationController.class);
 
@@ -52,6 +53,35 @@ public class AuthenticationController {
             return ResponseEntity
                     .status(HttpStatus.UNAUTHORIZED)
                     .body(MessageResponse.error("Invalid username or password"));
+        }
+    }
+
+    /**
+     * Signup endpoint
+     * POST /api/auth/signup
+     *
+     * @param signupRequest Registration details (username, email, password, firstName, lastName)
+     * @return LoginResponse with JWT token and user info
+     */
+    @PostMapping("/signup")
+    public ResponseEntity<?> signup(@Valid @RequestBody SignupRequest signupRequest) {
+        try {
+            logger.info("Signup request received for username: {}", signupRequest.getUsername());
+
+            LoginResponse response = authenticationService.signup(signupRequest);
+
+            return ResponseEntity.status(HttpStatus.CREATED).body(response);
+
+        } catch (RuntimeException e) {
+            logger.error("Signup failed: {}", e.getMessage());
+            return ResponseEntity
+                    .status(HttpStatus.BAD_REQUEST)
+                    .body(MessageResponse.error(e.getMessage()));
+        } catch (Exception e) {
+            logger.error("Signup failed with unexpected error: {}", e.getMessage());
+            return ResponseEntity
+                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(MessageResponse.error("Signup failed. Please try again."));
         }
     }
 
