@@ -1,5 +1,6 @@
 import { JobSearchDashboard } from "./components/job-search-dashboard";
 import { LoginModal } from "./components/login-modal";
+import { SignupModal } from "./components/signup-modal";
 import { HomePage } from "./components/home-page";
 import { ProfilePage } from "./components/profile-page";
 import { LogIn, Home, LogOut, Search, UserCircle } from "lucide-react";
@@ -7,6 +8,7 @@ import { useState } from "react";
 
 export default function App() {
     const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+    const [isSignupModalOpen, setIsSignupModalOpen] = useState(false);
     const [currentPage, setCurrentPage] = useState<"home" | "dashboard">("home");
     const [isLoggedIn, setIsLoggedIn] = useState(false);
     const [activeTab, setActiveTab] = useState<"search" | "profile">("search");
@@ -20,6 +22,23 @@ export default function App() {
         setIsLoggedIn(false);
         setCurrentPage("home");
         setActiveTab("search");
+    };
+
+    const switchToSignup = () => {
+        setIsLoginModalOpen(false);
+        setIsSignupModalOpen(true);
+    };
+
+    const switchToLogin = () => {
+        setIsSignupModalOpen(false);
+        setIsLoginModalOpen(true);
+    };
+
+    const handleSignup = () => {
+        // Add signup logic here
+        setIsSignupModalOpen(false);
+        setIsLoggedIn(true);
+        setCurrentPage("dashboard");
     };
 
     return (
@@ -111,6 +130,15 @@ export default function App() {
                 isOpen={isLoginModalOpen}
                 onClose={() => setIsLoginModalOpen(false)}
                 onLogin={handleLogin}
+                onSwitchToSignup={switchToSignup}
+            />
+
+            {/* Signup Modal */}
+            <SignupModal
+                isOpen={isSignupModalOpen}
+                onClose={() => setIsSignupModalOpen(false)}
+                onSignup={handleSignup}
+                onSwitchToLogin={switchToLogin}
             />
         </div>
     );
