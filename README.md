@@ -537,10 +537,10 @@ Built on Radix UI primitives with Tailwind styling:
 //POST /api/jobs/:id/apply
 //```
 
-**Recommended Libraries** (not yet installed):
+/****Recommended Libraries** (not yet installed):
 - Axios or Fetch wrapper for HTTP requests
 - React Query or SWR for data fetching/caching
-- JWT handling for authentication tokens
+- JWT handling for authentication tokens****/
 
 ### Frontend File Structure
 
