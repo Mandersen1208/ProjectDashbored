@@ -71,6 +71,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // Public endpoints (no authentication required)
                         .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers("/api/jobs/**").permitAll()  // Allow job search without authentication
                         .requestMatchers("/actuator/**").permitAll()
                         .requestMatchers("/error").permitAll()
 
@@ -88,16 +89,18 @@ public class SecurityConfig {
     }
 
     /**
-     * Configure CORS to allow Angular frontend
+     * Configure CORS to allow frontend from multiple sources
      */
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        // Allow Angular dev server
+        // Allow frontend from various sources (Angular, React/Vite dev server, Docker)
         configuration.setAllowedOrigins(List.of(
-                "http://localhost:4200",
-                "http://localhost:8080"
+                "http://localhost:3000",   // React frontend in Docker
+                "http://localhost:4200",   // Angular dev server
+                "http://localhost:5173",   // React/Vite dev server
+                "http://localhost:8080"    // Backend (for testing)
         ));
 
         // Allow common HTTP methods

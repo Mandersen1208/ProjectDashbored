@@ -17,6 +17,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("api/jobs")
+@CrossOrigin(origins = {"http://localhost:3000", "http://localhost:4200", "http://localhost:5173"}, maxAge = 3600, allowCredentials = "true")
 @Validated
 public class JobSearchController {
 

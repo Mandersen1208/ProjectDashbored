@@ -1,0 +1,89 @@
+.app-container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* PrimeNG Toolbar Styles */
+.p-toolbar {
+  background: linear-gradient(135deg, var(--purple-600) 0%, var(--cyan-600) 100%);;
+  backdrop-filter: blur(12px);
+  border: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 0;
+  padding: 0.75rem 1.5rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.p-toolbar h3 {
+  background: white;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.user-welcome {
+  color: white;
+  font-weight: 500;
+  font-size: 0.95rem;
+  padding: 0.5rem 1rem;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(8px);
+  border-radius: 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.p-toolbar .p-button.p-button-text.p-button-secondary {
+  color: #6b7280;
+}
+
+.p-toolbar .p-button.p-button-text.p-button-secondary:hover {
+  background:linear-gradient(to right, var(--purple-600), var(--cyan-600));
+  color: #374151;
+}
+
+.p-toolbar .p-splitbutton .p-button {
+  background: #000;
+  border-color: #000;
+}
+
+
+.p-toolbar .p-splitbutton .p-button:hover {
+  background: #1f2937;
+  border-color: #1f2937;
+}
+
+.p-iconfield input {
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem 0.5rem 2.5rem;
+}
+
+.p-iconfield input:focus {
+  outline: none;
+  border-color: #3B82F6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.main-content {
+  flex: 1;
+  padding: 2rem;
+}
+
+@media (max-width: 768px) {
+  .p-toolbar {
+    padding: 0.5rem 1rem;
+  }
+
+  .main-content {
+    padding: 1rem;
+  }
+}

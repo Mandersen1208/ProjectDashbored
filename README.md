@@ -23,11 +23,13 @@ A full-stack job search application that aggregates job postings from multiple A
 - **Connection Pool**: HikariCP
 
 ### Frontend
-- **Framework**: Angular 21.0
-- **UI Library**: PrimeNG 20.3
-- **Styling**: Pure CSS with CSS Variables
-- **Icons**: PrimeIcons
-- **Build Tool**: Angular CLI / Vite
+- **Framework**: React 18.2 with TypeScript 5.2
+- **Build Tool**: Vite 5.2
+- **UI Library**: shadcn/ui (Radix UI primitives)
+- **Styling**: Tailwind CSS 3.4 with custom theming
+- **Icons**: Lucide React (554+ icons)
+- **State Management**: React Hooks (useState)
+- **Form Handling**: React Hook Form 7.51 + Zod validation (ready to use)
 
 ### Infrastructure
 - **Containerization**: Docker & Docker Compose
@@ -304,18 +306,18 @@ The backend API will be available at `http://localhost:8080`
 #### Frontend
 1. **Install dependencies**:
 ```bash
-cd frontend
-npm install --legacy-peer-deps
+cd project-dashboard-frontend
+npm install
 ```
 
 2. **Start the development server**:
 ```bash
-npm start
+npm run dev
 ```
 
-The frontend will be available at `http://localhost:4200`
+The frontend will be available at `http://localhost:5173` (Vite default)
 
-**Note**: Make sure the backend is running before starting the frontend.
+**Note**: The frontend currently uses mock data. API integration is ready but not yet connected to the backend.
 
 ## Configuration
 
@@ -394,6 +396,230 @@ docker exec -it jobhunter-redis redis-cli
 > KEYS job:*
 > GET job:5354569383
 ```
+
+## Frontend Architecture
+
+### Component Hierarchy
+
+```
+App (Root Component)
+├── Toolbar/Navigation
+│   ├── Home Button
+│   ├── Tab Navigation (when logged in)
+│   │   ├── Job Search Tab
+│   │   └── My Profile Tab
+│   └── Authentication (Login/Logout Button)
+│
+├── Main Content Area
+│   ├── HomePage (Landing Page)
+│   │   ├── Hero Section with gradient background
+│   │   └── Feature Cards (Smart Search, Filters, Results, Speed)
+│   │
+│   └── Dashboard View
+│       ├── JobSearchDashboard (Search Tab)
+│       │   ├── Search Form (Job Title, Location, Distance)
+│       │   ├── Loading State with spinner
+│       │   ├── Results Table with hover effects
+│       │   └── Pagination Controls
+│       │
+│       └── ProfilePage (Profile Tab - requires login)
+│           ├── Profile Card with Avatar
+│           ├── Interests Section
+│           ├── About Me (editable)
+│           ├── Who I'd Like to Meet (editable)
+│           └── Top 8 Companies Grid
+│
+└── Modals
+    ├── LoginModal (Email/Password authentication)
+    └── SignupModal (New user registration)
+```
+
+### Frontend State Management
+
+**Navigation State** (in App.tsx):
+- `currentPage`: "home" | "dashboard"
+- `activeTab`: "search" | "profile"
+- `isLoggedIn`: boolean
+- `isLoginModalOpen`: boolean
+
+**Component State**:
+- **JobSearchDashboard**: Search filters, pagination, loading states, mock job data (23 items)
+- **ProfilePage**: Profile data, edit mode toggle, form data
+- **LoginModal/SignupModal**: Form field values
+
+**Communication Pattern**:
+- Props passed down from App to children
+- Callbacks passed up from children to App
+- No global state management (no Context API or Redux)
+
+### UI Component Library (shadcn/ui)
+
+Built on Radix UI primitives with Tailwind styling:
+- **Form Components**: Button, Input, Label, Checkbox, Select, Switch, Textarea
+- **Layout**: Card, Dialog, Sheet, Separator, Tabs, Accordion
+- **Feedback**: Alert, Toast (Sonner), Progress, Skeleton
+- **Navigation**: Dropdown Menu, Context Menu, Breadcrumb, Sidebar
+- **Advanced**: Calendar, Carousel, Command Palette, Popover, Tooltip
+
+### Styling Architecture
+
+**Tailwind CSS Configuration**:
+- Custom color system with CSS variables (oklch color space)
+- Dark mode support via class selector
+- Extended border radius options
+- Custom animations (accordion, transitions)
+
+**Design Patterns**:
+- Gradient backgrounds: `from-purple-600 via-blue-600 to-cyan-500`
+- Glassmorphism effects: `bg-white/10 backdrop-blur-md`
+- Responsive breakpoints: sm, md, lg
+- Interactive states with smooth transitions
+- Focus ring for accessibility
+
+### Frontend Technology Stack
+
+| Category | Technology | Version | Status |
+|----------|-----------|---------|--------|
+| Framework | React | 18.2.0 | ✅ Active |
+| Language | TypeScript | 5.2.2 | ✅ Active |
+| Build Tool | Vite | 5.2.0 | ✅ Active |
+| CSS | Tailwind CSS | 3.4.1 | ✅ Active |
+| UI Components | shadcn/ui (Radix) | Latest | ✅ Active |
+| Icons | Lucide React | 0.554.0 | ✅ Active |
+| Forms | React Hook Form | 7.51.3 | 📦 Installed, not used |
+| Validation | Zod | 3.23.8 | 📦 Installed, not used |
+| Charts | Recharts | 2.12.7 | 📦 Installed, not used |
+| Notifications | Sonner | 1.4.41 | ✅ Ready to use |
+| Theming | Next Themes | 0.4.6 | 📦 Installed |
+| Dates | date-fns | 3.6.0 | 📦 Installed |
+
+### Current Features
+
+**HomePage**:
+- Landing page with hero section
+- Feature showcase (4 cards with icons)
+- Call-to-action button → Dashboard
+
+**JobSearchDashboard**:
+- Search form: Job Title, Location, Distance (5-100 miles)
+- Mock data table (23 sample jobs)
+- Pagination with smart page controls
+- Items per page selector (5, 10, 25, 50, 100)
+- 1.5-second simulated loading state
+
+**ProfilePage** (Login Required):
+- View/Edit mode toggle
+- Profile card with avatar and basic info
+- Interests: Music, Movies, TV Shows, Heroes
+- About Me and "Who I'd Like to Meet" text areas
+- Top 8 Companies editable grid
+- Save/Cancel controls in edit mode
+
+**Authentication**:
+- Login modal with email/password
+- Signup modal with password confirmation
+- Remember me checkbox
+- Modal switching (Login ↔ Signup)
+- Mock authentication (no backend integration yet)
+
+### API Integration Status
+
+**Current**: All API calls are mocked with simulated delays and console logging.
+
+**Ready for Integration**:
+```typescript
+// Potential endpoints to connect:
+//GET  /api/jobs/search?query={query}&location={location}&distance={distance}
+//POST /api/auth/login { email, password }
+//POST /api/auth/signup { name, email, password }
+//GET  /api/user/profile
+//PUT  /api/user/profile
+//POST /api/jobs/:id/apply
+//```
+
+/****Recommended Libraries** (not yet installed):
+- Axios or Fetch wrapper for HTTP requests
+- React Query or SWR for data fetching/caching
+- JWT handling for authentication tokens****/
+
+### Frontend File Structure
+
+```
+project-dashboard-frontend/
+├── src/
+│   ├── main.tsx                      # Entry point (imports globals.css)
+│   ├── App.tsx                       # Root component with routing state
+│   ├── components/
+│   │   ├── home-page.tsx             # Landing page
+│   │   ├── job-search-dashboard.tsx  # Job search with pagination
+│   │   ├── login-modal.tsx           # Authentication modal
+│   │   ├── signup-modal.tsx          # Registration modal
+│   │   ├── profile-page.tsx          # User profile (editable)
+│   │   └── ui/                       # shadcn/ui components (55 files)
+│   │       ├── button.tsx
+│   │       ├── card.tsx
+│   │       ├── input.tsx
+│   │       ├── label.tsx
+│   │       ├── dialog.tsx
+│   │       ├── form.tsx
+│   │       └── ... (50+ more)
+│   └── components/ui/utils.ts        # cn() helper for classnames
+│
+├── styles/
+│   └── globals.css                   # Tailwind directives + CSS variables
+│
+├── public/                           # Static assets
+├── index.html                        # HTML entry point
+├── vite.config.ts                    # Vite configuration (path aliases)
+├── tsconfig.json                     # TypeScript configuration
+├── tailwind.config.js                # Tailwind theme customization
+├── postcss.config.js                 # PostCSS plugins
+├── package.json                      # Dependencies and scripts
+└── package-lock.json
+```
+
+### Development Commands
+
+```bash
+# Install dependencies
+npm install
+
+# Start dev server (http://localhost:5173)
+npm run dev
+
+# Build for production
+npm run build
+
+# Preview production build
+npm run preview
+
+# Type checking
+tsc --noEmit
+```
+
+### Frontend Improvements Roadmap
+
+**High Priority**:
+- [ ] Connect to backend API endpoints
+- [ ] Implement React Hook Form + Zod validation
+- [ ] Add React Router for URL-based navigation
+- [ ] Implement proper authentication with JWT tokens
+- [ ] Add error boundaries and error states
+- [ ] Persist authentication state (localStorage/sessionStorage)
+
+**Medium Priority**:
+- [ ] Add Context API or Zustand for global state
+- [ ] Implement actual job search with backend integration
+- [ ] Add loading skeletons instead of spinner
+- [ ] Create error toast notifications
+- [ ] Add form validation feedback
+
+**Low Priority**:
+- [ ] Remove unused dependencies (Recharts, Input OTP, etc.)
+- [ ] Add unit tests (Jest + React Testing Library)
+- [ ] Implement dark mode toggle
+- [ ] Add E2E tests (Playwright or Cypress)
+- [ ] Optimize bundle size
 
 ## Project Structure
 
