@@ -1,10 +1,10 @@
 import { Search, Briefcase, Filter, Zap } from "lucide-react";
 
 interface HomePageProps {
-  onGetStarted: () => void;
+onSwitchToSignup: () => void;
 }
 
-export function HomePage({ onGetStarted }: HomePageProps) {
+export function HomePage({ onSwitchToSignup }: HomePageProps) {
   return (
     <div className="max-w-6xl mx-auto">
       {/* Hero Section */}
@@ -16,7 +16,7 @@ export function HomePage({ onGetStarted }: HomePageProps) {
           Working to simplify looking for a job and get rid of the clutter that is around it
         </p>
         <button
-          onClick={onGetStarted}
+          onClick={onSwitchToSignup}
           className="bg-white text-purple-600 px-8 py-4 rounded-xl hover:bg-white/90 transition-all transform hover:scale-105 shadow-2xl"
         >
           Get Started

@@ -108,7 +108,7 @@ export default function App() {
             {/* Main Content */}
             <div className="p-8">
                 {currentPage === "home" ? (
-                    <HomePage onGetStarted={() => setCurrentPage("dashboard")} />
+                    <HomePage onSwitchToSignup={() => setIsSignupModalOpen(true)} />
                 ) : (
                     <>
                         {/* Tab Content */}
