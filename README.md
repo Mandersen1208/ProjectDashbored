@@ -1,26 +1,29 @@
 # ProjectDashbored - Job Hunter Application
 
-A full-stack job search application that aggregates job postings from multiple APIs and provides a beautiful, unified dashboard for job seekers. Built with Spring Boot backend and Angular frontend, featuring automated job fetching, persistent storage, and a modern gradient-themed UI.
+A full-stack job search application that aggregates job postings from multiple APIs and provides a beautiful, unified dashboard for job seekers. Built with Spring Boot backend and React/TypeScript frontend, featuring automated job fetching, JWT authentication, persistent storage, and a modern gradient-themed UI.
 
 ## Features
 
 - **Job Search API Integration**: Fetches jobs from Adzuna API with multi-page support
+- **JWT Authentication**: Secure user authentication with token-based auth and refresh capability
+- **Login State Persistence**: Users stay logged in across page refreshes via localStorage
 - **Automated Job Fetching**: Scheduled service runs every 15 seconds to fetch new jobs based on saved queries
-- **Redis Caching**: Caches job IDs and URLs for fast retrieval
+- **Redis Caching**: Caches job search results for fast retrieval (1-hour TTL)
 - **Saved Queries**: Store and manage search parameters for automated fetching
 - **Database Persistence**: PostgreSQL database with normalized schema
-- **REST API**: Full CRUD operations for jobs and saved queries
+- **REST API**: Full CRUD operations for jobs, saved queries, and authentication
 
 ## Tech Stack
 
 ### Backend
 - **Framework**: Spring Boot 3.5.7
-- **Java**: 17
+- **Java**: 23
 - **Database**: PostgreSQL 16
 - **Cache**: Redis 7
 - **Build Tool**: Maven
 - **ORM**: Spring Data JPA with Hibernate
 - **Connection Pool**: HikariCP
+- **Security**: Spring Security with JWT authentication (JJWT 0.12.3)
 
 ### Frontend
 - **Framework**: React 18.2 with TypeScript 5.2
@@ -28,8 +31,9 @@ A full-stack job search application that aggregates job postings from multiple A
 - **UI Library**: shadcn/ui (Radix UI primitives)
 - **Styling**: Tailwind CSS 3.4 with custom theming
 - **Icons**: Lucide React (554+ icons)
-- **State Management**: React Hooks (useState)
-- **Form Handling**: React Hook Form 7.51 + Zod validation (ready to use)
+- **HTTP Client**: Axios 1.13.2
+- **State Management**: React Hooks (useState, useEffect) with localStorage persistence
+- **Form Handling**: React Hook Form 7.51 + Zod validation (installed, ready to use)
 
 ### Infrastructure
 - **Containerization**: Docker & Docker Compose
@@ -209,12 +213,39 @@ SET job:5354569383 "https://www.adzuna.com/land/ad/5354569383?..."
 
 ## API Endpoints
 
+### Authentication
+
+**POST** `/api/auth/login`
+- **Body**: `{ "username": "user", "password": "pass" }`
+- **Response**: `{ "token": "jwt_token", "type": "Bearer", "user": {...} }`
+- **Description**: Authenticates user and returns JWT token
+
+**POST** `/api/auth/signup`
+- **Body**: `{ "username": "user", "email": "user@example.com", "password": "pass", "firstName": "John", "lastName": "Doe" }`
+- **Response**: `{ "token": "jwt_token", "type": "Bearer", "user": {...} }`
+- **Description**: Registers new user and returns JWT token
+
+**POST** `/api/auth/logout`
+- **Headers**: `Authorization: Bearer {token}`
+- **Response**: `{ "message": "Logged out successfully", "success": true }`
+- **Description**: Logs out user (client should clear token)
+
+**GET** `/api/auth/me`
+- **Headers**: `Authorization: Bearer {token}`
+- **Response**: Current authenticated user information
+- **Description**: Get current user details
+
+**GET** `/api/auth/health`
+- **Response**: `{ "message": "Authentication service is running", "success": true }`
+- **Description**: Health check for auth service
+
 ### Job Search
 
 **GET** `/api/jobs/search`
-- **Query Params**: `query` (required), `location` (required)
-- **Response**: JSON array of job postings
-- **Example**: `/api/jobs/search?query=python&location=New York`
+- **Query Params**: `query` (required), `location` (required), `distance` (optional)
+- **Response**: `{ "count": 250, "results": [{job1}, {job2}, ...] }`
+- **Example**: `/api/jobs/search?query=python&location=New York&distance=25`
+- **Auth**: Public (no authentication required)
 
 ### Saved Queries
 
@@ -317,36 +348,71 @@ npm run dev
 
 The frontend will be available at `http://localhost:5173` (Vite default)
 
-**Note**: The frontend currently uses mock data. API integration is ready but not yet connected to the backend.
+**Note**: Frontend is fully integrated with the backend API. Authentication persists across page refreshes via localStorage.
 
 ## Configuration
 
+### Local Development Setup
+
+**IMPORTANT**: The application uses `local.properties` for sensitive credentials (not committed to git).
+
+1. **Copy the example file:**
+   ```bash
+   cp backend/src/main/resources/local.properties.example backend/src/main/resources/local.properties
+   ```
+
+2. **Edit `local.properties` with your credentials:**
+   ```properties
+   # Adzuna API (get from https://developer.adzuna.com/)
+   adzuna.base-url=https://api.adzuna.com/v1/api/jobs/us/search/1
+   adzuna.api-id=YOUR_ADZUNA_API_ID
+   adzuna.api-key=YOUR_ADZUNA_API_KEY
+
+   # PostgreSQL (Docker default)
+   spring.datasource.url=jdbc:postgresql://localhost:5433/JobHunterDb2
+   spring.datasource.username=admin
+   spring.datasource.password=password
+
+   # JWT Secret (generate with: openssl rand -base64 64)
+   app.jwt.secret=YOUR_GENERATED_JWT_SECRET
+   app.jwt.expiration-ms=86400000
+   ```
+
+3. **Generate a secure JWT secret:**
+   ```bash
+   openssl rand -base64 64
+   ```
+
 ### Application Properties
 
+The main `application.properties` file contains non-sensitive defaults:
+
 ```properties
-# Adzuna API
-adzuna.base-url=https://api.adzuna.com/v1/api/jobs/us/search/1
-adzuna.api-id=YOUR_API_ID
-adzuna.api-key=YOUR_API_KEY
-
-# PostgreSQL
-spring.datasource.url=jdbc:postgresql://localhost:5433/JobHunterDb2
-spring.datasource.username=admin
-spring.datasource.password=password
-
 # Redis
 spring.data.redis.host=localhost
 spring.data.redis.port=6379
+spring.cache.type=redis
+spring.cache.redis.time-to-live=3600000  # 1 hour
+
+# HikariCP Connection Pool
+spring.datasource.hikari.maximum-pool-size=10
+spring.datasource.hikari.minimum-idle=5
+
+# JPA/Hibernate
+spring.jpa.hibernate.ddl-auto=none  # Schema managed by init/schema.sql
+spring.jpa.show-sql=true
+spring.jpa.open-in-view=false
 
 # Scheduler (15 seconds)
 # Configured via @Scheduled(fixedRate = 15000)
 ```
 
-### Environment Variables
+### Docker Compose Environment Variables
 
-**Docker Compose** overrides:
-- `SPRING_DATASOURCE_URL`
-- `SPRING_REDIS_HOST`
+**Docker Compose** overrides database and Redis hosts:
+- `SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/JobHunterDb2`
+- `SPRING_DATA_REDIS_HOST=redis`
+- No need for `local.properties` when running in Docker
 
 ## Usage Examples
 
@@ -486,6 +552,7 @@ Built on Radix UI primitives with Tailwind styling:
 | CSS | Tailwind CSS | 3.4.1 | ✅ Active |
 | UI Components | shadcn/ui (Radix) | Latest | ✅ Active |
 | Icons | Lucide React | 0.554.0 | ✅ Active |
+| HTTP Client | Axios | 1.13.2 | ✅ Active with interceptors |
 | Forms | React Hook Form | 7.51.3 | 📦 Installed, not used |
 | Validation | Zod | 3.23.8 | 📦 Installed, not used |
 | Charts | Recharts | 2.12.7 | 📦 Installed, not used |
@@ -599,20 +666,27 @@ tsc --noEmit
 
 ### Frontend Improvements Roadmap
 
+**Completed** ✅:
+- [x] Connect to backend API endpoints (Axios with interceptors)
+- [x] Implement proper authentication with JWT tokens
+- [x] Persist authentication state (localStorage)
+- [x] Implement actual job search with backend integration
+- [x] Add error states and error handling
+
 **High Priority**:
-- [ ] Connect to backend API endpoints
 - [ ] Implement React Hook Form + Zod validation
 - [ ] Add React Router for URL-based navigation
-- [ ] Implement proper authentication with JWT tokens
-- [ ] Add error boundaries and error states
-- [ ] Persist authentication state (localStorage/sessionStorage)
+- [ ] Add error boundaries for component failures
+- [ ] Add table filtering for job results
+- [ ] Add date range filters for job posting dates
 
 **Medium Priority**:
 - [ ] Add Context API or Zustand for global state
-- [ ] Implement actual job search with backend integration
-- [ ] Add loading skeletons instead of spinner
-- [ ] Create error toast notifications
+- [ ] Add loading skeletons instead of spinners
+- [ ] Create error toast notifications (Sonner is installed)
 - [ ] Add form validation feedback
+- [ ] Implement saved queries UI integration
+- [ ] Add job application tracking UI
 
 **Low Priority**:
 - [ ] Remove unused dependencies (Recharts, Input OTP, etc.)
@@ -623,49 +697,170 @@ tsc --noEmit
 
 ## Project Structure
 
+### Backend Structure
+
 ```
-ProjectDashbored/
+backend/
 ├── src/main/java/
 │   ├── main/
-│   │   └── JobSearchApplication.java      # Main entry point
-│   ├── JobSearch/
+│   │   ├── JobSearchApplication.java      # Main entry point (@SpringBootApplication)
+│   │   └── main.java                      # Placeholder file
+│   │
+│   ├── Authentication/                     # JWT Authentication Module
+│   │   ├── Config/
+│   │   │   └── SecurityConfig.java        # Spring Security configuration
 │   │   ├── Controllers/
-│   │   │   └── JobSearchController.java   # REST endpoints (consolidated)
+│   │   │   └── AuthenticationController.java  # Login/Signup/Logout endpoints
+│   │   ├── DTO/
+│   │   │   ├── LoginRequest.java          # Login request DTO
+│   │   │   ├── LoginResponse.java         # Login response with JWT
+│   │   │   ├── MessageResponse.java       # Generic message response
+│   │   │   ├── SignupRequest.java         # Signup request DTO
+│   │   │   └── UserDto.java               # User data transfer object
+│   │   ├── Entities/
+│   │   │   ├── User.java                  # User entity (users table)
+│   │   │   ├── Role.java                  # Role entity (roles table)
+│   │   │   └── RefreshToken.java          # Refresh token entity
+│   │   ├── Repositories/
+│   │   │   ├── UserRepository.java        # User repository
+│   │   │   ├── RoleRepository.java        # Role repository
+│   │   │   └── RefreshTokenRepository.java
+│   │   ├── Security/
+│   │   │   ├── JwtUtils.java              # JWT token generation/validation
+│   │   │   ├── JwtAuthenticationFilter.java  # JWT filter for requests
+│   │   │   ├── AuthEntryPointJwt.java     # 401 Unauthorized handler
+│   │   │   └── UserDetailsServiceImpl.java   # User details service
+│   │   └── Services/
+│   │       └── AuthenticationService.java # Authentication business logic
+│   │
+│   ├── JobSearch/                          # Job Search Module
+│   │   ├── Controllers/
+│   │   │   └── JobSearchController.java   # Job search & saved queries endpoints
 │   │   ├── Services/
 │   │   │   ├── JobSearchService.java      # Job search logic
-│   │   │   ├── ScheduledJobFetchService.java  # Automated fetching
+│   │   │   ├── ScheduledJobFetchService.java  # Automated fetching (@Scheduled)
 │   │   │   └── Implementations/
 │   │   │       └── JobSearchImpl.java     # Service interface
 │   │   ├── Clients/
 │   │   │   ├── Client.java                # Abstract API client
-│   │   │   ├── AdzunaClient.java          # Adzuna implementation
-│   │   │   └── ClientConfig.java          # Client beans
+│   │   │   ├── AdzunaClient.java          # Adzuna API implementation
+│   │   │   └── ClientConfig.java          # Client bean configuration
 │   │   └── Config/
-│   │       └── RedisConfig.java           # Redis configuration
-│   └── DbConnections/
-│       ├── DTO/
-│       │   ├── JobDto.java                # Adzuna API response
-│       │   ├── SearchParamsDto.java       # Search parameters
-│       │   └── Entities/
-│       │       ├── JobEntity.java         # Job table
-│       │       ├── SavedQuery.java        # Saved queries table
-│       │       ├── Company.java           # Companies lookup
-│       │       ├── Location.java          # Locations lookup
-│       │       └── Category.java          # Categories lookup
-│       ├── Repositories/
-│       │   ├── JobRepository.java         # Job + SavedQuery repos (consolidated)
-│       │   ├── CompanyRepository.java
-│       │   ├── LocationRepository.java
-│       │   └── CategoryRepository.java
-│       └── JobMapper.java                 # DTO → Entity mapper
+│   │       └── RedisConfig.java           # Redis cache configuration
+│   │
+│   ├── DbConnections/                      # Database Layer
+│   │   ├── DTO/
+│   │   │   ├── JobDto.java                # Adzuna API response DTO
+│   │   │   ├── JobResponseDto.java        # Job response to frontend
+│   │   │   ├── JobSearchResponseDto.java  # Wrapper for search results
+│   │   │   ├── SearchParamsDto.java       # Search parameters
+│   │   │   └── Entities/
+│   │   │       ├── JobEntity.java         # Job table entity
+│   │   │       ├── SavedQuery.java        # Saved queries entity
+│   │   │       ├── Company.java           # Company lookup entity
+│   │   │       ├── Location.java          # Location lookup entity
+│   │   │       └── Category.java          # Category lookup entity
+│   │   ├── Repositories/
+│   │   │   ├── JobRepository.java         # Job repository
+│   │   │   ├── SavedQueryRepository.java  # Saved query repository
+│   │   │   ├── CompanyRepository.java     # Company repository
+│   │   │   ├── LocationRepository.java    # Location repository
+│   │   │   └── CategoryRepository.java    # Category repository
+│   │   ├── JobMapper.java                 # DTO → Entity mapper with FK resolution
+│   │   └── DbConnectionUtility.java       # Database utilities
+│   │
+│   └── DashBoardBackend/                   # Dashboard Module (Stub)
+│       ├── Clients/
+│       │   └── JobDashBoardApis.java      # Dashboard API clients
+│       └── Services/
+│           ├── JobDashBoredService.java   # Dashboard service (stub)
+│           └── Implementations/
+│               └── JoabBoardImpl.java     # Service interface
+│
 ├── src/main/resources/
 │   ├── application.properties             # Main configuration
-│   └── application.yml                    # YAML configuration
-├── init/
-│   └── schema.sql                         # PostgreSQL schema
-├── docker-compose.yml                     # Docker orchestration
-├── Dockerfile                             # Multi-stage build
-└── pom.xml                                # Maven dependencies
+│   ├── application.yml                    # YAML configuration (alternative)
+│   ├── local.properties                   # Sensitive credentials (git-ignored)
+│   └── local.properties.example           # Template for local setup
+│
+├── src/test/
+│   └── Test/com/example/jobhunter1/
+│       └── JobSearchTests/
+│           └── ClientsTests/
+│               └── AdzunaClientTest.java  # Test placeholder
+│
+├── pom.xml                                # Maven dependencies
+├── Dockerfile                             # Multi-stage build (Maven + JRE)
+└── mvnw, mvnw.cmd                         # Maven wrapper
+
+init/
+└── schema.sql                             # PostgreSQL schema with triggers/views
+
+docker-compose.yml                         # Container orchestration (4 services)
+```
+
+### Frontend Structure
+
+```
+project-dashboard-frontend/
+├── src/
+│   ├── main.tsx                           # Entry point (imports globals.css)
+│   ├── App.tsx                            # Root component with auth state management
+│   │
+│   ├── components/
+│   │   ├── home-page.tsx                  # Landing page
+│   │   ├── job-search-dashboard.tsx       # Job search with API integration
+│   │   ├── login-modal.tsx                # Login modal (connected to backend)
+│   │   ├── signup-modal.tsx               # Signup modal (connected to backend)
+│   │   ├── profile-page.tsx               # User profile (editable)
+│   │   ├── profile-editor.tsx             # Profile editor component
+│   │   └── ui/                            # shadcn/ui components (55+ files)
+│   │       ├── accordion.tsx
+│   │       ├── alert-dialog.tsx
+│   │       ├── alert.tsx
+│   │       ├── avatar.tsx
+│   │       ├── button.tsx
+│   │       ├── calendar.tsx
+│   │       ├── card.tsx
+│   │       ├── checkbox.tsx
+│   │       ├── dialog.tsx
+│   │       ├── dropdown-menu.tsx
+│   │       ├── form.tsx
+│   │       ├── input.tsx
+│   │       ├── label.tsx
+│   │       ├── select.tsx
+│   │       ├── table.tsx
+│   │       ├── tabs.tsx
+│   │       └── ... (45+ more components)
+│   │
+│   ├── services/
+│   │   └── api.ts                         # Axios API client with interceptors
+│   │
+│   ├── lib/
+│   │   └── utils.ts                       # cn() helper for classnames
+│   │
+│   └── styles/
+│       └── globals.css                    # Tailwind directives + CSS variables
+│
+├── public/                                # Static assets
+├── index.html                             # HTML entry point
+├── vite.config.ts                         # Vite configuration (path aliases)
+├── tsconfig.json                          # TypeScript configuration
+├── tsconfig.node.json                     # TypeScript config for Vite
+├── tailwind.config.js                     # Tailwind theme customization
+├── postcss.config.js                      # PostCSS plugins
+├── components.json                        # shadcn/ui configuration
+├── package.json                           # Dependencies and scripts
+├── package-lock.json
+├── Dockerfile                             # Multi-stage build (Node + Nginx)
+└── nginx.conf                             # Nginx configuration for production
+
+Root Level Files:
+├── README.md                              # This file
+├── CHANGES.md                             # Recent changes log
+├── CLAUDE.md                              # AI assistant guide (needs update)
+├── .gitignore                             # Git ignore rules
+└── docker-compose.yml                     # Orchestrates all 4 services
 ```
 
 ## Key Design Decisions

@@ -6,6 +6,8 @@ import jakarta.validation.constraints.NotBlank;
 import lombok.*;
 import org.springframework.lang.Nullable;
 
+import java.time.LocalDate;
+
 @Getter
 @Setter
 @NoArgsConstructor
@@ -38,5 +40,11 @@ public class SearchParamsDto {
     @Max(value = 100, message = "Distance cannot exceed 100")
     @Builder.Default
     private int distance = 25;
+
+    @Nullable
+    private LocalDate dateFrom;
+
+    @Nullable
+    private LocalDate dateTo;
 
 }

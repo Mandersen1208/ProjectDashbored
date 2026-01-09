@@ -46,6 +46,9 @@ export interface JobSearchParams {
   query: string;
   location: string;
   distance: number;
+  excludedTerms?: string; // Comma-separated terms to exclude
+  dateFrom?: string; // ISO date string (YYYY-MM-DD)
+  dateTo?: string; // ISO date string (YYYY-MM-DD)
 }
 
 export interface JobSearchResponse {
@@ -116,12 +119,27 @@ export interface MessageResponse {
 export const api = {
   // Job Search
   searchJobs: async (params: JobSearchParams): Promise<JobSearchResponse> => {
+    const requestParams: Record<string, any> = {
+      query: params.query,
+      location: params.location,
+      distance: params.distance,
+    };
+
+    // Add optional exclude terms if provided
+    if (params.excludedTerms) {
+      requestParams.excludedTerms = params.excludedTerms;
+    }
+
+    // Add optional date parameters if provided
+    if (params.dateFrom) {
+      requestParams.dateFrom = params.dateFrom;
+    }
+    if (params.dateTo) {
+      requestParams.dateTo = params.dateTo;
+    }
+
     const response = await apiClient.get<JobSearchResponse>('/api/jobs/search', {
-      params: {
-        query: params.query,
-        location: params.location,
-        distance: params.distance,
-      },
+      params: requestParams,
     });
     return response.data;
   },

@@ -1,11 +1,15 @@
-import { Search, Loader2, ChevronLeft, ChevronRight, ExternalLink } from "lucide-react";
+import { Search, Loader2, ChevronLeft, ChevronRight, ExternalLink, Filter, Calendar as CalendarIcon } from "lucide-react";
 import { useState } from "react";
 import { api, type JobResult } from "../services/api";
+import { Calendar } from "./ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
+import { format } from "date-fns";
 
 export function JobSearchDashboard() {
   const [jobTitle, setJobTitle] = useState("");
   const [location, setLocation] = useState("New York");
   const [distance, setDistance] = useState("10");
+  const [excludeTerms, setExcludeTerms] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -13,10 +17,41 @@ export function JobSearchDashboard() {
   const [jobs, setJobs] = useState<JobResult[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  const totalPages = Math.ceil(jobs.length / itemsPerPage);
+  // Filter state
+  const [filterText, setFilterText] = useState("");
+
+  // Date range state
+  const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
+  const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
+
+  // Apply filtering to jobs
+  const filteredJobs = jobs.filter((job) => {
+    // Text filter
+    const matchesFilter = filterText === "" ||
+      job.title.toLowerCase().includes(filterText.toLowerCase()) ||
+      job.companyName.toLowerCase().includes(filterText.toLowerCase()) ||
+      job.locationName.toLowerCase().includes(filterText.toLowerCase()) ||
+      job.categoryName.toLowerCase().includes(filterText.toLowerCase());
+
+    // Date range filter
+    let matchesDateRange = true;
+    if (dateFrom || dateTo) {
+      const jobDate = new Date(job.createdDate);
+      if (dateFrom && jobDate < dateFrom) {
+        matchesDateRange = false;
+      }
+      if (dateTo && jobDate > dateTo) {
+        matchesDateRange = false;
+      }
+    }
+
+    return matchesFilter && matchesDateRange;
+  });
+
+  const totalPages = Math.ceil(filteredJobs.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
-  const currentData = jobs.slice(startIndex, endIndex);
+  const currentData = filteredJobs.slice(startIndex, endIndex);
 
   const handleSearch = async () => {
     if (!jobTitle || !location) {
@@ -28,13 +63,29 @@ export function JobSearchDashboard() {
     setShowResults(false);
     setError(null);
     setCurrentPage(1);
+    setFilterText(""); // Reset filter on new search
 
     try {
-      const response = await api.searchJobs({
+      const searchParams: any = {
         query: jobTitle,
         location: location,
         distance: parseInt(distance),
-      });
+      };
+
+      // Add exclude terms if provided
+      if (excludeTerms.trim()) {
+        searchParams.excludedTerms = excludeTerms.trim();
+      }
+
+      // Add date parameters if they're set
+      if (dateFrom) {
+        searchParams.dateFrom = format(dateFrom, 'yyyy-MM-dd');
+      }
+      if (dateTo) {
+        searchParams.dateTo = format(dateTo, 'yyyy-MM-dd');
+      }
+
+      const response = await api.searchJobs(searchParams);
 
       setJobs(response.results);
       setShowResults(true);
@@ -65,6 +116,28 @@ export function JobSearchDashboard() {
   const handleItemsPerPageChange = (newItemsPerPage: number) => {
     setItemsPerPage(newItemsPerPage);
     setCurrentPage(1); // Reset to first page when changing items per page
+  };
+
+  const handleFilterChange = (value: string) => {
+    setFilterText(value);
+    setCurrentPage(1); // Reset to first page when filtering
+  };
+
+  const handleDateFromChange = (date: Date | undefined) => {
+    setDateFrom(date);
+    setCurrentPage(1); // Reset to first page when date changes
+  };
+
+  const handleDateToChange = (date: Date | undefined) => {
+    setDateTo(date);
+    setCurrentPage(1); // Reset to first page when date changes
+  };
+
+  const clearFilters = () => {
+    setFilterText("");
+    setDateFrom(undefined);
+    setDateTo(undefined);
+    setCurrentPage(1);
   };
 
   const getPageNumbers = () => {
@@ -138,6 +211,21 @@ export function JobSearchDashboard() {
             />
           </div>
 
+          {/* Exclude Terms */}
+          <div>
+            <label htmlFor="exclude-terms" className="block mb-2 text-gray-800">
+              Exclude Terms (optional)
+            </label>
+            <input
+              id="exclude-terms"
+              type="text"
+              value={excludeTerms}
+              onChange={(e) => setExcludeTerms(e.target.value)}
+              placeholder="e.g. senior, manager (comma separated)"
+              className="w-full px-4 py-3 border-2 border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+            />
+          </div>
+
           {/* Distance */}
           <div>
             <label htmlFor="distance" className="block mb-2 text-gray-800">
@@ -156,6 +244,60 @@ export function JobSearchDashboard() {
               <option value="50">50 miles</option>
               <option value="100">100 miles</option>
             </select>
+          </div>
+
+          {/* Posted Date From */}
+          <div>
+            <label className="block mb-2 text-gray-800">
+              Posted After
+            </label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  className="w-full px-4 py-3 border-2 border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white transition-all text-left flex items-center justify-between"
+                >
+                  <span className={dateFrom ? "text-gray-900" : "text-gray-400"}>
+                    {dateFrom ? format(dateFrom, "PPP") : "Pick a date"}
+                  </span>
+                  <CalendarIcon className="w-5 h-5 text-gray-500" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0 bg-white" align="start">
+                <Calendar
+                  mode="single"
+                  selected={dateFrom}
+                  onSelect={handleDateFromChange}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+
+          {/* Posted Date To */}
+          <div>
+            <label className="block mb-2 text-gray-800">
+              Posted Before
+            </label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  className="w-full px-4 py-3 border-2 border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white transition-all text-left flex items-center justify-between"
+                >
+                  <span className={dateTo ? "text-gray-900" : "text-gray-400"}>
+                    {dateTo ? format(dateTo, "PPP") : "Pick a date"}
+                  </span>
+                  <CalendarIcon className="w-5 h-5 text-gray-500" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0 bg-white" align="start">
+                <Calendar
+                  mode="single"
+                  selected={dateTo}
+                  onSelect={handleDateToChange}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
           </div>
         </div>
 
@@ -202,12 +344,62 @@ export function JobSearchDashboard() {
       {/* Results Table */}
       {showResults && !isLoading && (
         <div className="mt-8 bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl p-8 border border-white/20">
-          <h2 className="mb-6 bg-gradient-to-r from-purple-600 to-cyan-600 bg-clip-text text-transparent">
-            {jobs.length} Job{jobs.length !== 1 ? 's' : ''} Found
-          </h2>
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="bg-gradient-to-r from-purple-600 to-cyan-600 bg-clip-text text-transparent">
+              {filteredJobs.length} of {jobs.length} Job{jobs.length !== 1 ? 's' : ''} {filteredJobs.length !== jobs.length ? 'Filtered' : 'Found'}
+            </h2>
+          </div>
 
-          {jobs.length === 0 ? (
-            <p className="text-gray-600 text-center py-8">No jobs found. Try adjusting your search criteria.</p>
+          {/* Filter Controls */}
+          <div className="mb-6 flex gap-4 items-end">
+            <div className="flex-1">
+              <label htmlFor="filter" className="block mb-2 text-gray-800 text-sm">
+                Filter Results
+              </label>
+              <div className="relative">
+                <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  id="filter"
+                  type="text"
+                  value={filterText}
+                  onChange={(e) => handleFilterChange(e.target.value)}
+                  placeholder="Filter by title, company, location, or category..."
+                  className="w-full pl-10 pr-4 py-2 border-2 border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                />
+              </div>
+            </div>
+            {(filterText || dateFrom || dateTo) && (
+              <button
+                onClick={clearFilters}
+                className="px-4 py-2 text-sm text-purple-600 hover:text-purple-700 hover:bg-purple-50 rounded-xl transition-colors border-2 border-purple-200"
+              >
+                Clear Filters
+              </button>
+            )}
+          </div>
+
+          {/* Active Filters Display */}
+          {(dateFrom || dateTo) && (
+            <div className="mb-4 flex gap-2 flex-wrap">
+              {dateFrom && (
+                <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm flex items-center gap-2">
+                  After: {format(dateFrom, "PP")}
+                  <button onClick={() => handleDateFromChange(undefined)} className="hover:text-purple-900">×</button>
+                </span>
+              )}
+              {dateTo && (
+                <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm flex items-center gap-2">
+                  Before: {format(dateTo, "PP")}
+                  <button onClick={() => handleDateToChange(undefined)} className="hover:text-purple-900">×</button>
+                </span>
+              )}
+            </div>
+          )}
+
+          {filteredJobs.length === 0 ? (
+            <p className="text-gray-600 text-center py-8">
+              {jobs.length === 0 ? "No jobs found. Try adjusting your search criteria." : "No jobs match your filters. Try clearing or adjusting the filters."}
+            </p>
           ) : (
             <div className="space-y-4">
               {currentData.map((job) => (
@@ -249,7 +441,7 @@ export function JobSearchDashboard() {
             </div>
           )}
 
-          {jobs.length > 0 && (
+          {filteredJobs.length > 0 && (
             <div className="mt-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div className="flex items-center gap-3">
                 <span className="text-gray-600">Show</span>
@@ -265,7 +457,7 @@ export function JobSearchDashboard() {
                   <option value={100}>100</option>
                 </select>
                 <span className="text-gray-600">
-                  per page | Showing {startIndex + 1} to {Math.min(endIndex, jobs.length)} of {jobs.length} results
+                  per page | Showing {startIndex + 1} to {Math.min(endIndex, filteredJobs.length)} of {filteredJobs.length} results
                 </span>
               </div>
               <div className="flex items-center gap-2">

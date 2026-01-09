@@ -4,7 +4,8 @@ import { SignupModal } from "./components/signup-modal";
 import { HomePage } from "./components/home-page";
 import { ProfilePage } from "./components/profile-page";
 import { LogIn, Home, LogOut, Search, UserCircle } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { api } from "./services/api";
 
 export default function App() {
     const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
@@ -13,15 +14,31 @@ export default function App() {
     const [isLoggedIn, setIsLoggedIn] = useState(false);
     const [activeTab, setActiveTab] = useState<"search" | "profile">("search");
 
+    // Check if user is already logged in on mount (restore state from localStorage)
+    useEffect(() => {
+        if (api.isAuthenticated()) {
+            setIsLoggedIn(true);
+            // If user was on dashboard before refresh, restore that view
+            const savedPage = localStorage.getItem('currentPage');
+            if (savedPage === 'dashboard') {
+                setCurrentPage('dashboard');
+            }
+        }
+    }, []);
+
     const handleLogin = () => {
         setIsLoggedIn(true);
         setCurrentPage("dashboard");
+        localStorage.setItem('currentPage', 'dashboard');
     };
 
     const handleLogout = () => {
+        // Call API logout to clear tokens
+        api.logout();
         setIsLoggedIn(false);
         setCurrentPage("home");
         setActiveTab("search");
+        localStorage.removeItem('currentPage');
     };
 
     const switchToSignup = () => {

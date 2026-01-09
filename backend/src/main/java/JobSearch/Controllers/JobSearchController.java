@@ -8,11 +8,13 @@ import JobSearch.Services.JobSearchService;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @RestController
@@ -39,16 +41,35 @@ public class JobSearchController {
     // ============================================
 
     /**
-     * Search for jobs - fetches from Adzuna API and saves to database,
-     * then returns jobs from database (with Redis caching)
+     * Search for jobs - Always fetches fresh data from Adzuna API, saves to database,
+     * then queries database with specific search parameters and filters.
+     * Results are cached in Redis for the session.
+     *
+     * Flow:
+     * 1. Call Adzuna API with query + location (get up-to-date job listings)
+     * 2. Save new jobs to database
+     * 3. Query database for jobs matching search parameters
+     * 4. Apply filters (exclude terms, date range)
+     * 5. Return cached results
      */
     @GetMapping("/search")
-    public ResponseEntity<JobSearchResponseDto> searchJobs(@RequestParam String query,
-                                                           @RequestParam String location,
-                                                           @RequestParam int distance) {
-        logger.info("Search request received: query={}, location={}", query, location);
+    public ResponseEntity<JobSearchResponseDto> searchJobs(
+            @RequestParam String query,
+            @RequestParam String location,
+            @RequestParam(required = false, defaultValue = "25") int distance,
+            @RequestParam(required = false) String excludedTerms,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo) {
+        logger.info("Search request received: query={}, location={}, excludedTerms={}, dateFrom={}, dateTo={}",
+                    query, location, excludedTerms, dateFrom, dateTo);
+
+        // Step 1 & 2: Fetch fresh jobs from Adzuna API and save to database
+        logger.info("Fetching fresh jobs from Adzuna API for query: {}, location: {}", query, location);
         jobSearchImpl.searchJobs(query, location, distance);
-        JobSearchResponseDto response = jobSearchService.getJobsFromDatabase(query, location);
+
+        // Step 3, 4, 5: Query database with specific search params, apply filters, return cached results
+        JobSearchResponseDto response = jobSearchService.getJobsFromDatabase(query, location, excludedTerms, dateFrom, dateTo);
+        logger.info("Returning {} jobs matching search criteria", response.getResults().size());
 
         return ResponseEntity.ok(response);
     }

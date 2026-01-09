@@ -36,3 +36,8 @@ build/
 # Local properties containing API keys and credentials
 **/local.properties
 local.properties
+project-dashboard-frontend/package-lock.json
+package-lock.json
+project-dashboard-frontend/package-lock.json
+backend-log.txt
+frontend-log.txt

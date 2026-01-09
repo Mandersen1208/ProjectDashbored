@@ -22,6 +22,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -144,10 +146,74 @@ public class JobSearchService implements JobSearchImpl {
      */
     @Cacheable(value = "jobSearch", key = "#query + '_' + #location")
     public JobSearchResponseDto getJobsFromDatabase(String query, String location) {
-        logger.info("Fetching jobs from database for query: {}, location: {}", query, location);
+        return getJobsFromDatabase(query, location, null, null, null);
+    }
 
-        // Get all jobs from database (you can add filtering later)
-        List<JobEntity> jobEntities = jobRepository.findAll();
+    /**
+     * Get jobs from database with optional date range filtering (backward compatibility)
+     * This method is cached in Redis for 1 hour
+     */
+    @Cacheable(value = "jobSearch", key = "#query + '_' + #location + '_' + #dateFrom + '_' + #dateTo")
+    public JobSearchResponseDto getJobsFromDatabase(String query, String location, LocalDate dateFrom, LocalDate dateTo) {
+        return getJobsFromDatabase(query, location, null, dateFrom, dateTo);
+    }
+
+    /**
+     * Get jobs from database with optional exclude terms and date range filtering
+     * This method is cached in Redis for 1 hour
+     */
+    @Cacheable(value = "jobSearch", key = "#query + '_' + #location + '_' + #excludedTerms + '_' + #dateFrom + '_' + #dateTo")
+    public JobSearchResponseDto getJobsFromDatabase(String query, String location, String excludedTerms, LocalDate dateFrom, LocalDate dateTo) {
+        logger.info("Fetching jobs from database for query: {}, location: {}, excludedTerms: {}, dateFrom: {}, dateTo: {}",
+                    query, location, excludedTerms, dateFrom, dateTo);
+
+        // Search database for jobs matching query and location
+        List<JobEntity> jobEntities = jobRepository.findByQueryAndLocation(query, location);
+        logger.info("Found {} jobs in database matching query: {} and location: {}", jobEntities.size(), query, location);
+
+        // Apply exclude terms filtering if provided
+        if (excludedTerms != null && !excludedTerms.trim().isEmpty()) {
+            String[] excludeTermsArray = excludedTerms.split(",");
+            jobEntities = jobEntities.stream()
+                    .filter(job -> {
+                        String jobTitle = job.getTitle() != null ? job.getTitle().toLowerCase() : "";
+                        String jobDescription = job.getDescription() != null ? job.getDescription().toLowerCase() : "";
+
+                        // Check if any exclude term is present in title or description
+                        for (String term : excludeTermsArray) {
+                            String trimmedTerm = term.trim().toLowerCase();
+                            if (!trimmedTerm.isEmpty()) {
+                                if (jobTitle.contains(trimmedTerm) || jobDescription.contains(trimmedTerm)) {
+                                    return false; // Exclude this job
+                                }
+                            }
+                        }
+                        return true; // Include this job
+                    })
+                    .collect(Collectors.toList());
+
+            logger.info("After exclude filtering: {} jobs match", jobEntities.size());
+        }
+
+        // Apply date filtering if dates are provided
+        if (dateFrom != null || dateTo != null) {
+            jobEntities = jobEntities.stream()
+                    .filter(job -> {
+                        if (job.getCreatedDate() == null) {
+                            return false;
+                        }
+                        LocalDateTime jobDateTime = job.getCreatedDate();
+                        LocalDate jobDate = jobDateTime.toLocalDate();
+
+                        boolean afterStart = dateFrom == null || !jobDate.isBefore(dateFrom);
+                        boolean beforeEnd = dateTo == null || !jobDate.isAfter(dateTo);
+
+                        return afterStart && beforeEnd;
+                    })
+                    .collect(Collectors.toList());
+
+            logger.info("After date filtering: {} jobs match", jobEntities.size());
+        }
 
         // Convert entities to response DTOs
         List<JobResponseDto> jobs = jobEntities.stream()
