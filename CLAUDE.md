@@ -810,6 +810,106 @@ The database integration is complete with all issues resolved:
 - Connection closure errors during startup
 - Infinite Docker restart loops
 
+### ✅ Geographic Distance-Based Filtering - COMPLETE **NEW!**
+
+**Status**: Fully operational with automatic geocoding and Haversine distance calculations
+
+**Problem Solved**: String-based location matching was too restrictive. Searching "New York" only returned jobs with "New York" in the location name, missing jobs in Brooklyn, Queens, Jersey City, etc. that were within the search radius.
+
+**Solution**: Geographic distance-based filtering using lat/lon coordinates and Haversine formula.
+
+**Implementation Details**:
+
+1. **Database Schema** ([init/schema.sql:49-50](init/schema.sql#L49-L50)):
+   - Added `latitude DOUBLE PRECISION` column to locations table
+   - Added `longitude DOUBLE PRECISION` column to locations table
+   - Added indexes on both columns for query performance
+
+2. **Location Entity** ([Location.java:38-42](backend/src/main/java/DbConnections/DTO/Entities/Location.java#L38-L42)):
+   - Added `latitude` and `longitude` fields (Double)
+
+3. **GeocodingService** ([GeocodingService.java](backend/src/main/java/JobSearch/Services/GeocodingService.java)):
+   - Uses Nominatim (OpenStreetMap) API for free geocoding
+   - Converts location strings to lat/lon coordinates
+   - Results cached with `@Cacheable("geocoding")` to avoid repeated API calls
+   - Returns `Coordinates` class (Serializable for Redis)
+
+4. **JobRepository** ([JobRepository.java:43-55](backend/src/main/java/DbConnections/Repositories/JobRepository.java#L43-L55)):
+   - Added `findByQueryAndDistance()` method
+   - Uses Haversine formula in native SQL to calculate distance in miles:
+     ```sql
+     3959 * acos(cos(radians(centerLat)) * cos(radians(l.latitude)) *
+                 cos(radians(l.longitude) - radians(centerLon)) +
+                 sin(radians(centerLat)) * sin(radians(l.latitude)))
+     ```
+
+5. **JobMapper** ([JobMapper.java:88-103](backend/src/main/java/DbConnections/JobMapper.java#L88-L103)):
+   - Injected `GeocodingService` dependency
+   - Updated `findOrCreateLocation()` to geocode new locations
+   - Stores latitude/longitude when creating location records
+
+6. **JobSearchService** ([JobSearchService.java:192-218](backend/src/main/java/JobSearch/Services/JobSearchService.java#L192-L218)):
+   - Added new method: `getJobsFromDatabase(query, location, distance, excludedTerms, dateFrom, dateTo)`
+   - Smart query selection:
+     - Tries geocoding first for accurate geographic filtering
+     - If successful: uses `findByQueryAndDistance()` with Haversine formula
+     - If geocoding fails: falls back to string matching
+   - Extensive logging for debugging
+
+7. **JobSearchController** ([JobSearchController.java:59-71](backend/src/main/java/JobSearch/Controllers/JobSearchController.java#L59-L71)):
+   - Updated to pass `distance` parameter to service (default: 25 miles)
+
+**How It Works**:
+
+**Before:**
+- Search "New York" → Database: `LIKE '%new york%'`
+- Returns only 3 jobs with "New York" in location name
+- Misses Brooklyn, Queens, Jersey City, etc.
+
+**After:**
+1. User searches "New York" with distance=25 miles
+2. `GeocodingService.geocode("New York")` → (40.7128, -74.0060)
+3. Database calculates distance from center point using Haversine formula
+4. Returns all jobs within 25-mile radius: Manhattan, Brooklyn, Queens, Jersey City, etc.
+5. If geocoding fails, gracefully falls back to string matching
+
+**Benefits**:
+- ✅ More accurate results - Geographic distance instead of string matching
+- ✅ Flexible radius - Users can adjust distance parameter
+- ✅ Graceful fallback - Falls back to string matching if geocoding fails
+- ✅ Performance optimized - Geocoding results cached, distance calculated in SQL
+- ✅ Backwards compatible - Existing API calls still work
+- ✅ Automatic geocoding - New locations are geocoded when jobs are saved
+
+### ✅ Advanced Job Filtering - COMPLETE **NEW!**
+
+**Status**: Fully operational with exclude terms and date range filtering
+
+**Implementation**:
+
+1. **Exclude Terms Filtering** ([JobSearchService.java:220-215](backend/src/main/java/JobSearch/Services/JobSearchService.java#L220-L215)):
+   - Comma-separated list of terms to exclude from results
+   - Filters out jobs with excluded terms in title or description
+   - Example: `excludedTerms=senior,lead,manager` removes senior-level positions
+
+2. **Date Range Filtering** ([JobSearchService.java:217-235](backend/src/main/java/JobSearch/Services/JobSearchService.java#L217-L235)):
+   - Filter jobs by creation date
+   - Parameters: `dateFrom` and `dateTo` (ISO date format: YYYY-MM-DD)
+   - Example: `dateFrom=2025-01-01&dateTo=2025-01-31` returns jobs from January 2025
+
+3. **Combined Filtering**:
+   - All filters can be combined in a single request
+   - Example: Search "developer" within 30 miles of "Boston", exclude "senior,lead", posted in January 2025
+   - Filters applied in sequence: distance → exclude terms → date range
+
+**API Parameters**:
+- `query` (required): Job title or keywords
+- `location` (required): Job location (geocoded automatically)
+- `distance` (optional, default=25): Search radius in miles
+- `excludedTerms` (optional): Comma-separated terms to exclude
+- `dateFrom` (optional): Start date (YYYY-MM-DD)
+- `dateTo` (optional): End date (YYYY-MM-DD)
+
 ### Next Steps
 
 1. **Security** (High Priority)
@@ -965,17 +1065,20 @@ When working on this codebase, consider asking the developer:
 
 - Spring Boot 3.5.7 Documentation: https://docs.spring.io/spring-boot/docs/3.5.7/reference/html/
 - Adzuna API Documentation: https://developer.adzuna.com/
+- Nominatim (OpenStreetMap) API Documentation: https://nominatim.org/release-docs/latest/api/Overview/
 - Java 17 Documentation: https://docs.oracle.com/en/java/javase/17/
 - Lombok Documentation: https://projectlombok.org/
+- Haversine Formula: https://en.wikipedia.org/wiki/Haversine_formula
 
 ---
 
-**Last Updated**: 2025-11-16
-**Codebase Version**: Commit `4aff9e5` (Database setup COMPLETE - all issues resolved)
-**Branch**: `claude/fix-optimistic-locking-exception-01648B6FHTg3VfcTRRHARrFs`
+**Last Updated**: 2026-01-09
+**Codebase Version**: Geographic distance-based filtering implemented with automatic geocoding
+**Branch**: `eamil-feature` (previously `claude/fix-optimistic-locking-exception-01648B6FHTg3VfcTRRHARrFs`)
 **AI Assistant**: Claude (Anthropic)
 
 **Database Status**: ✅ Fully operational in both local and Docker environments
+**New Features**: ✅ Geographic distance filtering, exclude terms filtering, date range filtering
 
 ## Database Schema Management
 
