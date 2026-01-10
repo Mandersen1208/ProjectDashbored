@@ -15,6 +15,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @RestController
@@ -112,19 +113,31 @@ public class JobSearchController {
     @PostMapping("/saved-queries")
     public ResponseEntity<String> createSavedQuery(@Valid @RequestBody SavedQuery savedQuery) {
         try {
-            // Check if query already exists
-            if (savedQueryRepository.findByQueryAndLocation(
-                    savedQuery.getQuery(), savedQuery.getLocation()).isPresent()) {
-                logger.warn("Saved query already exists: {} - location {}", savedQuery.getQuery(), savedQuery.getLocation());
-                return ResponseEntity.status(HttpStatus.CONFLICT).body("Query already exists");
+            // Validate that userId is provided
+            if (savedQuery.getUserId() == null) {
+                logger.warn("Attempted to create saved query without userId");
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("User ID is required");
+            }
+
+            // Check if query already exists for this user
+            if (savedQueryRepository.findByUserIdAndQueryAndLocation(
+                    savedQuery.getUserId(),
+                    savedQuery.getQuery(),
+                    savedQuery.getLocation()).isPresent()) {
+                logger.warn("Saved query already exists for user {}: {} - location {}", 
+                    savedQuery.getUserId(), savedQuery.getQuery(), savedQuery.getLocation());
+                return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body("You have already saved this search. Check your Saved Searches page.");
             }
 
             savedQueryRepository.save(savedQuery);
-            logger.info("Created saved query: {} - location {}", savedQuery.getQuery(), savedQuery.getLocation());
-            return ResponseEntity.status(HttpStatus.CREATED).body("Saved query created successfully");
+            logger.info("Created saved query for user {}: {} - location {}", 
+                savedQuery.getUserId(), savedQuery.getQuery(), savedQuery.getLocation());
+            return ResponseEntity.status(HttpStatus.CREATED).body("Search saved successfully!");
         } catch (Exception e) {
             logger.error("Error creating saved query: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to create saved query");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body("Failed to save search. Please try again.");
         }
     }
 
@@ -139,6 +152,10 @@ public class JobSearchController {
                 .map(existing -> {
                     existing.setQuery(updatedQuery.getQuery());
                     existing.setLocation(updatedQuery.getLocation());
+                    existing.setDistance(updatedQuery.getDistance());
+                    existing.setExcludedTerms(updatedQuery.getExcludedTerms());
+                    existing.setDateFrom(updatedQuery.getDateFrom());
+                    existing.setDateTo(updatedQuery.getDateTo());
                     existing.setIsActive(updatedQuery.getIsActive());
                     SavedQuery saved = savedQueryRepository.save(existing);
                     logger.info("Updated saved query ID {}: {} - location {}", id, saved.getQuery(), saved.getLocation());
@@ -173,5 +190,43 @@ public class JobSearchController {
             return ResponseEntity.noContent().build();
         }
         return ResponseEntity.notFound().build();
+    }
+
+    /**
+     * Execute a saved query by ID
+     * Retrieves the saved query parameters and runs the job search
+     */
+    @GetMapping("/saved-queries/{id}/execute")
+    public ResponseEntity<JobSearchResponseDto> executeSavedQuery(@PathVariable Long id) {
+        return savedQueryRepository.findById(id)
+                .map(savedQuery -> {
+                    logger.info("Executing saved query ID {}: {} in {}",
+                        id, savedQuery.getQuery(), savedQuery.getLocation());
+
+                    // Step 1 & 2: Fetch fresh jobs from Adzuna API and save to database
+                    jobSearchImpl.searchJobs(
+                        savedQuery.getQuery(),
+                        savedQuery.getLocation(),
+                        savedQuery.getDistance()
+                    );
+
+                    // Step 3, 4, 5: Query database with saved query parameters
+                    JobSearchResponseDto response = jobSearchService.getJobsFromDatabase(
+                        savedQuery.getQuery(),
+                        savedQuery.getLocation(),
+                        savedQuery.getDistance(),
+                        savedQuery.getExcludedTerms(),
+                        savedQuery.getDateFrom(),
+                        savedQuery.getDateTo()
+                    );
+
+                    // Update last run timestamp
+                    savedQuery.setLastRunAt(LocalDateTime.now());
+                    savedQueryRepository.save(savedQuery);
+
+                    logger.info("Saved query ID {} executed: {} jobs returned", id, response.getCount());
+                    return ResponseEntity.ok(response);
+                })
+                .orElse(ResponseEntity.notFound().build());
     }
 }

@@ -21,6 +21,9 @@ public class SavedQuery {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "user_id", nullable = false)
+    private Long userId;
+
     @NotBlank(message = "Query cannot be blank")
     @Size(max = 255, message = "Query must not exceed 255 characters")
     @Pattern(regexp = "^[a-zA-Z0-9\\s\\-\\.]+$", message = "Query contains invalid characters")
@@ -46,8 +49,21 @@ public class SavedQuery {
     @Column(name = "last_run_at")
     private LocalDateTime lastRunAt;
 
+    @Column(name = "new_jobs_count")
+    @Builder.Default
+    private Integer newJobsCount = 0;
+
     @Column(name = "distance")
     private int distance;
+
+    @Column(name = "excluded_terms", length = 500)
+    private String excludedTerms;
+
+    @Column(name = "date_from")
+    private java.time.LocalDate dateFrom;
+
+    @Column(name = "date_to")
+    private java.time.LocalDate dateTo;
 
     @PrePersist
     protected void onCreate() {

@@ -36,8 +36,14 @@ build/
 # Local properties containing API keys and credentials
 **/local.properties
 local.properties
+
+# Docker environment files
+.env
+
+# Package lock files
 project-dashboard-frontend/package-lock.json
 package-lock.json
-project-dashboard-frontend/package-lock.json
+
+# Log files
 backend-log.txt
 frontend-log.txt

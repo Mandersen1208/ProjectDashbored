@@ -2,7 +2,10 @@
 package DbConnections;
 
 import DbConnections.DTO.JobDto;
-import DbConnections.DTO.Entities.*;
+import DbConnections.DTO.Entities.Company;
+import DbConnections.DTO.Entities.Category;
+import DbConnections.DTO.Entities.JobEntity;
+import DbConnections.DTO.Entities.Location;
 import DbConnections.Repositories.CategoryRepository;
 import DbConnections.Repositories.CompanyRepository;
 import DbConnections.Repositories.LocationRepository;

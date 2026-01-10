@@ -21,6 +21,11 @@ public interface SavedQueryRepository extends JpaRepository<SavedQuery, Long> {
     Optional<SavedQuery> findByQueryAndLocation(String query, String location);
 
     /**
+     * Find a saved query by userId, query, and location
+     */
+    Optional<SavedQuery> findByUserIdAndQueryAndLocation(Long userId, String query, String location);
+
+    /**
      * Find all saved queries ordered by last run date
      */
     List<SavedQuery> findAllByOrderByLastRunAtDesc();

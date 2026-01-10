@@ -1,21 +1,40 @@
-import { Search, Loader2, ChevronLeft, ChevronRight, ExternalLink, Filter, Calendar as CalendarIcon } from "lucide-react";
-import { useState } from "react";
-import { api, type JobResult } from "../services/api";
+import { Search, Loader2, ChevronLeft, ChevronRight, ExternalLink, Filter, Calendar as CalendarIcon, BookmarkPlus } from "lucide-react";
+import { useState, useEffect } from "react";
+import { api } from "../services/api";
+import type { JobResult, SavedQuery } from "../types";
 import { Calendar } from "./ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import { Textarea } from "./ui/textarea";
 import { format } from "date-fns";
 
-export function JobSearchDashboard() {
+interface JobSearchDashboardProps {
+  savedQueryToExecute?: any;
+  onQueryExecuted?: () => void;
+  onQuerySaved?: () => void; // Callback when a query is successfully saved
+}
+
+export function JobSearchDashboard({ savedQueryToExecute, onQueryExecuted, onQuerySaved }: JobSearchDashboardProps) {
   const [jobTitle, setJobTitle] = useState("");
   const [location, setLocation] = useState("New York");
   const [distance, setDistance] = useState("10");
   const [excludeTerms, setExcludeTerms] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [jobs, setJobs] = useState<JobResult[]>([]);
   const [error, setError] = useState<string | null>(null);
+
+  // Application tracking state
+  const [selectedJob, setSelectedJob] = useState<JobResult | null>(null);
+  const [applicationStatus, setApplicationStatus] = useState("applied");
+  const [applicationNotes, setApplicationNotes] = useState("");
+  const [resumeVersion, setResumeVersion] = useState("");
+  const [coverLetterVersion, setCoverLetterVersion] = useState("");
+  const [isSubmittingApp, setIsSubmittingApp] = useState(false);
 
   // Filter state
   const [filterText, setFilterText] = useState("");
@@ -24,7 +43,47 @@ export function JobSearchDashboard() {
   const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
   const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
 
-  // Apply filtering to jobs
+  // Listen for saved query to execute
+  useEffect(() => {
+    if (savedQueryToExecute) {
+      // Populate form fields
+      setJobTitle(savedQueryToExecute.query);
+      setLocation(savedQueryToExecute.location);
+      setDistance(savedQueryToExecute.distance?.toString() || "10");
+      
+      // Execute search automatically
+      executeSearch(savedQueryToExecute);
+      
+      // Notify parent that query has been executed
+      onQueryExecuted?.();
+    }
+  }, [savedQueryToExecute]);
+
+  const executeSearch = async (queryData: SavedQuery) => {
+    setIsLoading(true);
+    setShowResults(false);
+    setError(null);
+    setCurrentPage(1);
+    setFilterText("");
+
+    try {
+      const searchParams: any = {
+        query: queryData.query,
+        location: queryData.location,
+        distance: queryData.distance || 10,
+      };
+
+      const response = await api.searchJobs(searchParams);
+      setJobs(response.results);
+      setShowResults(true);
+    } catch (err: any) {
+      console.error("Search error:", err);
+      setError(err.response?.data?.message || "Failed to search jobs. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const filteredJobs = jobs.filter((job) => {
     // Text filter
     const matchesFilter = filterText === "" ||
@@ -86,7 +145,6 @@ export function JobSearchDashboard() {
       }
 
       const response = await api.searchJobs(searchParams);
-
       setJobs(response.results);
       setShowResults(true);
     } catch (err: any) {
@@ -94,6 +152,106 @@ export function JobSearchDashboard() {
       setError(err.response?.data?.message || "Failed to search jobs. Please try again.");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleSaveSearch = async () => {
+    if (!jobTitle || !location) {
+      setError("Please enter both job title and location to save");
+      return;
+    }
+
+    const currentUser = api.getCurrentUser();
+    if (!currentUser) {
+      setError("You must be logged in to save searches");
+      return;
+    }
+
+    setIsSaving(true);
+    setError(null);
+
+    try {
+      const payload = {
+        userId: currentUser.id,
+        query: jobTitle,
+        location: location,
+        distance: parseInt(distance),
+        isActive: true,
+      };
+      
+      const response = await api.createSavedQuery(payload);
+
+      // Safely show success message
+      try {
+        alert(response || "Search saved successfully! Your saved searches will be automatically updated.");
+      } catch (alertErr) {
+        console.error("Alert error:", alertErr);
+      }
+      
+      // Notify parent component to refresh saved queries list
+      if (onQuerySaved) {
+        onQuerySaved();
+      }
+      
+      setError(null);
+    } catch (err: any) {
+      console.error("Save search error:", err);
+      try {
+        if (err.response?.status === 409) {
+          // Duplicate entry - show friendly alert
+          alert(err.response?.data || "You've already saved this search!\n\nYou can view and manage it in your Saved Searches page.");
+        } else if (err.response?.status === 400) {
+          // Bad request - show error in UI
+          setError(err.response?.data || "Unable to save search. Please make sure you're logged in.");
+        } else {
+          // Other errors - show in UI
+          setError(err.response?.data || "Failed to save search. Please try again.");
+        }
+      } catch (alertErr) {
+        console.error("Alert error:", alertErr);
+        setError("Search operation completed but there was a display issue.");
+      }
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleAddApplication = async () => {
+    if (!selectedJob) return;
+
+    setIsSubmittingApp(true);
+    try {
+      const currentUser = api.getCurrentUser();
+      if (!currentUser) {
+        alert("Please sign in to track applications.");
+        setIsSubmittingApp(false);
+        return;
+      }
+      await api.createApplication({
+        userId: currentUser.id,
+        jobTitle: selectedJob.title,
+        companyName: selectedJob.companyName || undefined,
+        jobUrl: selectedJob.jobUrl || undefined,
+        location: selectedJob.locationName || undefined,
+        status: applicationStatus as "applied" | "phone_screen" | "interview" | "offer" | "rejected",
+        notes: applicationNotes || undefined,
+        resumeVersion: resumeVersion || undefined,
+        coverLetterVersion: coverLetterVersion || undefined,
+      });
+
+      alert("Application tracked successfully! View it in the Applications tab.");
+      
+      // Reset modal state
+      setSelectedJob(null);
+      setApplicationStatus("applied");
+      setApplicationNotes("");
+      setResumeVersion("");
+      setCoverLetterVersion("");
+    } catch (error) {
+      console.error("Error adding application:", error);
+      alert("Failed to track application. Please try again.");
+    } finally {
+      setIsSubmittingApp(false);
     }
   };
 
@@ -301,8 +459,8 @@ export function JobSearchDashboard() {
           </div>
         </div>
 
-        {/* Search Button */}
-        <div className="flex justify-center md:justify-start">
+        {/* Search Buttons */}
+        <div className="flex flex-wrap gap-3 justify-center md:justify-start">
           <button
             onClick={handleSearch}
             disabled={isLoading}
@@ -317,6 +475,24 @@ export function JobSearchDashboard() {
               <>
                 <Search className="w-5 h-5" />
                 Search Jobs
+              </>
+            )}
+          </button>
+          
+          <button
+            onClick={handleSaveSearch}
+            disabled={isSaving || !jobTitle || !location}
+            className="flex items-center gap-2 bg-gradient-to-r from-blue-700 to-purple-700 hover:from-blue-800 hover:to-purple-800 text-white px-8 py-3 rounded-xl transition-all transform hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+          >
+            {isSaving ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              <>
+                <BookmarkPlus className="w-5 h-5" />
+                Save Search
               </>
             )}
           </button>
@@ -406,7 +582,9 @@ export function JobSearchDashboard() {
                 <div key={job.id} className="border border-purple-200 rounded-xl p-6 hover:shadow-lg transition-shadow bg-white">
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
-                      <h3 className="text-xl font-semibold text-gray-900 mb-2">{job.title}</h3>
+                      <div className="flex items-center gap-2 mb-2">
+                        <h3 className="text-xl font-semibold text-gray-900">{job.title}</h3>
+                      </div>
                       <p className="text-gray-600 mb-1">{job.companyName}</p>
                       <p className="text-gray-500 mb-3">{job.locationName}</p>
                       {(job.salaryMin || job.salaryMax) && (
@@ -426,15 +604,118 @@ export function JobSearchDashboard() {
                         </span>
                       </div>
                     </div>
-                    <a
-                      href={job.jobUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="ml-4 flex items-center gap-2 bg-gradient-to-r from-purple-600 to-cyan-600 hover:from-purple-700 hover:to-cyan-700 text-white px-4 py-2 rounded-lg transition-all whitespace-nowrap"
-                    >
-                      View Job
-                      <ExternalLink className="w-4 h-4" />
-                    </a>
+                    <div className="ml-4 flex flex-col gap-2">
+                      <a
+                        href={job.jobUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 to-cyan-600 hover:from-purple-700 hover:to-cyan-700 text-white px-4 py-2 rounded-lg transition-all whitespace-nowrap"
+                      >
+                        View Job
+                        <ExternalLink className="w-4 h-4" />
+                      </a>
+                      <Dialog open={selectedJob?.id === job.id} onOpenChange={(open) => !open && setSelectedJob(null)}>
+                        <DialogTrigger asChild>
+                          <button
+                            onClick={() => setSelectedJob(job)}
+                            className="flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-all whitespace-nowrap"
+                          >
+                            Track Application
+                            <BookmarkPlus className="w-4 h-4" />
+                          </button>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-md bg-white">
+                          <DialogHeader>
+                            <DialogTitle>Track Application</DialogTitle>
+                            <DialogDescription>
+                              Add this job to your applications tracker
+                            </DialogDescription>
+                          </DialogHeader>
+                          <div className="space-y-4 py-4">
+                            <div className="space-y-2">
+                              <label className="text-sm font-medium">Job Title</label>
+                              <input
+                                type="text"
+                                value={selectedJob?.title || ""}
+                                disabled
+                                className="w-full px-3 py-2 border rounded-lg bg-gray-50"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <label className="text-sm font-medium">Company</label>
+                              <input
+                                type="text"
+                                value={selectedJob?.companyName || "Unknown"}
+                                disabled
+                                className="w-full px-3 py-2 border rounded-lg bg-gray-50"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <label htmlFor="status" className="text-sm font-medium">Status</label>
+                              <Select value={applicationStatus} onValueChange={setApplicationStatus}>
+                                <SelectTrigger id="status" className="bg-white">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent className="bg-white">
+                                  <SelectItem value="applied">Applied</SelectItem>
+                                  <SelectItem value="phone_screen">Phone Screen</SelectItem>
+                                  <SelectItem value="interview">Interview</SelectItem>
+                                  <SelectItem value="offer">Offer</SelectItem>
+                                  <SelectItem value="rejected">Rejected</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="space-y-2">
+                              <label htmlFor="notes" className="text-sm font-medium">Notes (Optional)</label>
+                              <Textarea
+                                id="notes"
+                                placeholder="Add any notes about this application..."
+                                value={applicationNotes}
+                                onChange={(e) => setApplicationNotes(e.target.value)}
+                                rows={3}
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <label htmlFor="resume" className="text-sm font-medium">Resume Version (Optional)</label>
+                              <input
+                                id="resume"
+                                type="text"
+                                placeholder="e.g., Resume_v2.pdf"
+                                value={resumeVersion}
+                                onChange={(e) => setResumeVersion(e.target.value)}
+                                className="w-full px-3 py-2 border rounded-lg"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <label htmlFor="cover" className="text-sm font-medium">Cover Letter Version (Optional)</label>
+                              <input
+                                id="cover"
+                                type="text"
+                                placeholder="e.g., CoverLetter_CompanyName.pdf"
+                                value={coverLetterVersion}
+                                onChange={(e) => setCoverLetterVersion(e.target.value)}
+                                className="w-full px-3 py-2 border rounded-lg"
+                              />
+                            </div>
+                          </div>
+                          <div className="flex justify-end gap-2">
+                            <button
+                              onClick={() => setSelectedJob(null)}
+                              className="px-4 py-2 border rounded-lg hover:bg-gray-50"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              onClick={handleAddApplication}
+                              disabled={isSubmittingApp}
+                              className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg disabled:opacity-50"
+                            >
+                              {isSubmittingApp ? "Adding..." : "Track Application"}
+                            </button>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                    </div>
                   </div>
                 </div>
               ))}

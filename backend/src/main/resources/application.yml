@@ -2,3 +2,25 @@ adzuna:
   base-url: "https://api.adzuna.com/v1/api/jobs/gb/search/1"
   app-id: "0b846404"
   app-key: "eb58ac8b07e0b9e1d7f9c77ea0bfe9ee"
+
+spring:
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+          connectiontimeout: 5000
+          timeout: 5000
+          writetimeout: 5000
+
+# Email notification settings
+email:
+  from: ${EMAIL_FROM:noreply@jobhunter.com}
+  enabled: ${EMAIL_ENABLED:false}

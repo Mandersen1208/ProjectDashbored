@@ -22,11 +22,35 @@ import java.util.Date;
 public class JwtUtils {
     private static final Logger logger = LoggerFactory.getLogger(JwtUtils.class);
 
-    @Value("${app.jwt.secret}")
+    @Value("${app.jwt.secret:}")
     private String jwtSecret;
 
     @Value("${app.jwt.expiration-ms}")
     private int jwtExpirationMs;
+
+    /**
+     * Validate JWT configuration on startup
+     */
+    @jakarta.annotation.PostConstruct
+    public void init() {
+        if (jwtSecret == null || jwtSecret.trim().isEmpty()) {
+            throw new IllegalStateException(
+                "JWT secret is not configured! Please set 'app.jwt.secret' in local.properties. " +
+                "Generate a secure secret with: openssl rand -base64 64"
+            );
+        }
+
+        // Validate secret length (must be at least 256 bits for HS256)
+        byte[] keyBytes = Decoders.BASE64.decode(jwtSecret);
+        if (keyBytes.length < 32) { // 32 bytes = 256 bits
+            throw new IllegalStateException(
+                "JWT secret is too short (" + (keyBytes.length * 8) + " bits). " +
+                "Must be at least 256 bits. Generate a secure secret with: openssl rand -base64 64"
+            );
+        }
+
+        logger.info("JWT configuration validated successfully (secret length: {} bits)", keyBytes.length * 8);
+    }
 
     /**
      * Generate a JWT token from an authenticated user

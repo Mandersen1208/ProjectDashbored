@@ -1,4 +1,19 @@
-import axios, {type AxiosInstance, AxiosError } from 'axios';
+import axios, { type AxiosInstance, AxiosError } from 'axios';
+import type {
+  JobSearchParams,
+  JobSearchResponse,
+  LoginRequest,
+  SignupRequest,
+  LoginResponse,
+  UserDto,
+  SavedQuery,
+  CreateSavedQueryRequest,
+  UpdateSavedQueryRequest,
+  Application,
+  CreateApplicationRequest,
+  UpdateApplicationRequest,
+  ApplicationStats,
+} from '../types';
 
 // API Base URL - can be overridden by environment variable
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
@@ -32,92 +47,16 @@ apiClient.interceptors.response.use(
   (response) => response,
   (error: AxiosError) => {
     if (error.response?.status === 401) {
-      // Unauthorized - clear token and redirect to login
-      localStorage.removeItem('authToken');
-      localStorage.removeItem('user');
-      // Don't auto-redirect, let components handle it
+      // Unauthorized - trigger forced logout
+      api.forceLogout('Session expired');
     }
     return Promise.reject(error);
   }
 );
 
-// Type definitions matching backend DTOs
-export interface JobSearchParams {
-  query: string;
-  location: string;
-  distance: number;
-  excludedTerms?: string; // Comma-separated terms to exclude
-  dateFrom?: string; // ISO date string (YYYY-MM-DD)
-  dateTo?: string; // ISO date string (YYYY-MM-DD)
-}
-
-export interface JobSearchResponse {
-  count: number;
-  results: JobResult[];
-}
-
-export interface JobResult {
-  id: number;
-  externalId: string;
-  title: string;
-  companyId: number;
-  companyName: string;
-  locationId: number;
-  locationName: string;
-  categoryId: number;
-  categoryName: string;
-  salaryMin?: number;
-  salaryMax?: number;
-  description: string;
-  jobUrl: string;
-  source: string;
-  createdDate: string;
-  dateFound: string;
-  applyBy?: string;
-  company?: {
-    display_name: string;
-  };
-  location?: {
-    display_name: string;
-  };
-}
-
-export interface LoginRequest {
-  username: string;
-  password: string;
-}
-
-export interface SignupRequest {
-  username: string;
-  email: string;
-  password: string;
-  firstName?: string;
-  lastName?: string;
-}
-
-export interface UserDto {
-  id: number;
-  username: string;
-  email: string;
-  firstName?: string;
-  lastName?: string;
-  roles: string[];
-}
-
-export interface LoginResponse {
-  token: string;
-  type: string;
-  user: UserDto;
-}
-
-export interface MessageResponse {
-  message: string;
-  success: boolean;
-}
-
 // API Service
 export const api = {
-  // Job Search
+  // Job Search - fetches fresh data from API and queries database with caching
   searchJobs: async (params: JobSearchParams): Promise<JobSearchResponse> => {
     const requestParams: Record<string, any> = {
       query: params.query,
@@ -172,6 +111,17 @@ export const api = {
   logout: () => {
     localStorage.removeItem('authToken');
     localStorage.removeItem('user');
+    localStorage.removeItem('currentPage');
+    // Dispatch custom event for logout
+    window.dispatchEvent(new CustomEvent('forceLogout', { detail: 'User logged out' }));
+  },
+
+  forceLogout: (reason: string) => {
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('user');
+    localStorage.removeItem('currentPage');
+    // Dispatch custom event with reason
+    window.dispatchEvent(new CustomEvent('forceLogout', { detail: reason }));
   },
 
   // Get currently logged in user from localStorage
@@ -190,6 +140,104 @@ export const api = {
   // Check if user is authenticated
   isAuthenticated: (): boolean => {
     return !!localStorage.getItem('authToken');
+  },
+
+  // ============================================
+  // Saved Queries
+  // ============================================
+
+  // Get all saved queries
+  getSavedQueries: async (): Promise<SavedQuery[]> => {
+    const response = await apiClient.get<SavedQuery[]>('/api/jobs/saved-queries');
+    return response.data;
+  },
+
+  // Get only active saved queries
+  getActiveSavedQueries: async (): Promise<SavedQuery[]> => {
+    const response = await apiClient.get<SavedQuery[]>('/api/jobs/saved-queries/active');
+    return response.data;
+  },
+
+  // Get a specific saved query by ID
+  getSavedQueryById: async (id: number): Promise<SavedQuery> => {
+    const response = await apiClient.get<SavedQuery>(`/api/jobs/saved-queries/${id}`);
+    return response.data;
+  },
+
+  // Create a new saved query
+  createSavedQuery: async (data: CreateSavedQueryRequest): Promise<string> => {
+    const response = await apiClient.post<string>('/api/jobs/saved-queries', data);
+    return response.data;
+  },
+
+  // Update an existing saved query
+  updateSavedQuery: async (id: number, data: UpdateSavedQueryRequest): Promise<SavedQuery> => {
+    const response = await apiClient.put<SavedQuery>(`/api/jobs/saved-queries/${id}`, data);
+    return response.data;
+  },
+
+  // Toggle active status of a saved query
+  toggleSavedQuery: async (id: number): Promise<SavedQuery> => {
+    const response = await apiClient.patch<SavedQuery>(`/api/jobs/saved-queries/${id}/toggle`);
+    return response.data;
+  },
+
+  // Delete a saved query
+  deleteSavedQuery: async (id: number): Promise<void> => {
+    await apiClient.delete(`/api/jobs/saved-queries/${id}`);
+  },
+
+  // ============================================
+  // Applications
+  // ============================================
+
+  // Get all applications
+  getApplications: async (): Promise<Application[]> => {
+    const response = await apiClient.get<Application[]>('/api/applications');
+    return response.data;
+  },
+
+  // Get application by ID
+  getApplicationById: async (id: number): Promise<Application> => {
+    const response = await apiClient.get<Application>(`/api/applications/${id}`);
+    return response.data;
+  },
+
+  // Create new application
+  createApplication: async (data: CreateApplicationRequest): Promise<Application> => {
+    const response = await apiClient.post<Application>('/api/applications', data);
+    return response.data;
+  },
+
+  // Update application
+  updateApplication: async (id: number, data: UpdateApplicationRequest): Promise<Application> => {
+    const response = await apiClient.put<Application>(`/api/applications/${id}`, data);
+    return response.data;
+  },
+
+  // Update application status only
+  updateApplicationStatus: async (id: number, status: string): Promise<Application> => {
+    const response = await apiClient.patch<Application>(`/api/applications/${id}/status`, null, {
+      params: { status }
+    });
+    return response.data;
+  },
+
+  // Delete application
+  deleteApplication: async (id: number): Promise<void> => {
+    await apiClient.delete(`/api/applications/${id}`);
+  },
+
+  // Get applications by status
+  getApplicationsByStatus: async (status: string): Promise<Application[]> => {
+    const response = await apiClient.get<Application[]>(`/api/applications/status/${status}`);
+    return response.data;
+  },
+
+  // Get application statistics
+  getApplicationStats: async (): Promise<ApplicationStats> => {
+    const response = await apiClient.get<ApplicationStats>('/api/applications/stats');
+    return response.data;
   },
 };
 

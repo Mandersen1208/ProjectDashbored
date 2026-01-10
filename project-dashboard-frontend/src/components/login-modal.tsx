@@ -23,8 +23,7 @@ export function LoginModal({ isOpen, onClose, onLogin, onSwitchToSignup }: Login
         setError(null);
 
         try {
-            const response = await api.login({ username, password });
-            console.log("Login successful:", response.user);
+            await api.login({ username, password });
             onLogin();
             onClose();
             // Reset form
