@@ -38,7 +38,7 @@ export function SignupModal({ isOpen, onClose, onSignup, onSwitchToLogin }: Sign
     setError(null);
 
     try {
-      const response = await api.signup({
+      await api.signup({
         username,
         email,
         password,
@@ -46,7 +46,6 @@ export function SignupModal({ isOpen, onClose, onSignup, onSwitchToLogin }: Sign
         lastName,
       });
 
-      console.log("Signup successful:", response.user);
       onSignup();
       onClose();
       // Reset form

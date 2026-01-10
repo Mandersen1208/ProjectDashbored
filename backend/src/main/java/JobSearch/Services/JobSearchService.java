@@ -43,6 +43,7 @@ public class JobSearchService implements JobSearchImpl {
     private final CategoryRepository categoryRepository;
     private final JobMapper jobMapper;
     private final ObjectMapper objectMapper;
+    private final GeocodingService geocodingService;
 
 
     public JobSearchService(AdzunaClient adzunaClient,
@@ -51,7 +52,8 @@ public class JobSearchService implements JobSearchImpl {
                             LocationRepository locationRepository,
                             CategoryRepository categoryRepository,
                             JobMapper jobMapper,
-                            ObjectMapper objectMapper) {
+                            ObjectMapper objectMapper,
+                            GeocodingService geocodingService) {
         this.adzunaClient = adzunaClient;
         this.jobRepository = jobRepository;
         this.companyRepository = companyRepository;
@@ -59,85 +61,165 @@ public class JobSearchService implements JobSearchImpl {
         this.categoryRepository = categoryRepository;
         this.jobMapper = jobMapper;
         this.objectMapper = objectMapper;
+        this.geocodingService = geocodingService;
     }
+
+    private static final int DEFAULT_PAGES_TO_FETCH = 5;
+    private static final long API_RATE_LIMIT_DELAY_MS = 500;
 
     @Override
     @Transactional
     public void searchJobs(String query, String location, int distance) {
-        // Number of pages to fetch from Adzuna API (default to 5 if not specified)
-        int numberOfPages = 5;
         int totalJobsSaved = 0;
-       /* String firstPageResponse = null;*/
 
-        for (int page = 1; page <= numberOfPages; page++) {
-            SearchParamsDto params = SearchParamsDto.builder()
-                    .query(query)
-                    .location(location)
-                    .distance(distance)
-                    .page(page)
-                    .build();
-
-            logger.info("Fetching page {} of {} from Adzuna...", page, numberOfPages);
-
-            ResponseEntity<String> response = adzunaClient.getResponseEntity(params);
-            String body = response.getBody();
-
-            if (body == null || body.isEmpty()) {
-                logger.warn("Empty response from Adzuna API on page {}", page);
-                continue;
+        for (int page = 1; page <= DEFAULT_PAGES_TO_FETCH; page++) {
+            SearchParamsDto params = buildSearchParams(query, location, distance, page);
+            int savedCount = processSearchPage(params, page);
+            
+            if (savedCount == 0 && page > 1) {
+                logger.info("No results found on page {}. Stopping pagination.", page);
+                break;
             }
-
-            try {
-                JsonNode root = objectMapper.readTree(body);
-                JsonNode resultsNode = root.path("results");
-                List<JobDto> dtos = new ArrayList<>();
-
-                if (resultsNode.isArray()) {
-                    dtos = objectMapper.convertValue(resultsNode, new TypeReference<>() {
-                    });
-                }
-
-                // If no results on this page, stop fetching more pages
-                if (dtos.isEmpty()) {
-                    logger.info("No more results found on page {}. Stopping pagination.", page);
-                    break;
-                }
-
-                List<JobEntity> toSave = new ArrayList<>();
-                for (JobDto dto : dtos) {
-                    if (dto.getExternalId() == null) {
-                        continue; // Skip jobs without external ID
-                    }
-
-                    // Skip if job already exists
-                    if (jobRepository.findByExternalId(dto.getExternalId()).isPresent()) {
-                        continue;
-                    }
-
-                    // Set source to Adzuna before mapping
-                    dto.setSource("Adzuna");
-
-                    JobEntity entity = jobMapper.toEntity(dto);
-                    if (entity == null) continue;
-
-                    toSave.add(entity);
-                }
-
-                if (!toSave.isEmpty()) {
-                    jobRepository.saveAll(toSave);
-                    totalJobsSaved += toSave.size();
-                    logger.info("Saved {} new jobs from page {}", toSave.size(), page);
-                }
-
-                // Small delay to avoid hitting API rate limits
-                Thread.sleep(500);
-
-            } catch (Exception e) {
-                logger.error("Error processing page {}: {}", page, e.getMessage(), e);
-            }
+            
+            totalJobsSaved += savedCount;
+            delayForApiRateLimit();
         }
 
         logger.info("Total jobs saved from all pages: {}", totalJobsSaved);
+    }
+
+    /**
+     * Build search parameters for API call
+     */
+    private SearchParamsDto buildSearchParams(String query, String location, int distance, int page) {
+        return SearchParamsDto.builder()
+                .query(query)
+                .location(location)
+                .distance(distance)
+                .page(page)
+                .build();
+    }
+
+    /**
+     * Process a single page of search results
+     */
+    private int processSearchPage(SearchParamsDto params, int page) {
+        logger.info("Fetching page {} from Adzuna...", page);
+
+        ResponseEntity<String> response = adzunaClient.getResponseEntity(params);
+        String body = response.getBody();
+
+        if (body == null || body.isEmpty()) {
+            logger.warn("Empty response from Adzuna API on page {}", page);
+            return 0;
+        }
+
+        try {
+            List<JobDto> dtos = parseJobsFromResponse(body);
+            
+            if (dtos.isEmpty()) {
+                return 0;
+            }
+
+            logger.info("Page {} returned {} jobs from Adzuna", page, dtos.size());
+            return saveFilteredJobs(dtos, page);
+
+        } catch (Exception e) {
+            logger.error("Error processing page {}: {}", page, e.getMessage(), e);
+            return 0;
+        }
+    }
+
+    /**
+     * Parse jobs from API response JSON
+     */
+    private List<JobDto> parseJobsFromResponse(String body) throws Exception {
+        JsonNode root = objectMapper.readTree(body);
+        JsonNode resultsNode = root.path("results");
+        
+        if (!resultsNode.isArray()) {
+            return new ArrayList<>();
+        }
+
+        return objectMapper.convertValue(resultsNode, new TypeReference<List<JobDto>>() {});
+    }
+
+    /**
+     * Filter and save jobs, skipping duplicates and invalid entries
+     */
+    private int saveFilteredJobs(List<JobDto> dtos, int page) {
+        List<JobEntity> toSave = new ArrayList<>();
+        int skippedNoId = 0;
+        int skippedDuplicate = 0;
+
+        for (JobDto dto : dtos) {
+            if (shouldSkipJob(dto, skippedNoId)) {
+                skippedNoId++;
+                continue;
+            }
+
+            if (isDuplicate(dto)) {
+                skippedDuplicate++;
+                continue;
+            }
+
+            JobEntity entity = mapJobDtoToEntity(dto);
+            if (entity != null) {
+                toSave.add(entity);
+            }
+        }
+
+        logJobProcessingStats(page, dtos.size(), toSave.size(), skippedDuplicate, skippedNoId);
+
+        if (!toSave.isEmpty()) {
+            jobRepository.saveAll(toSave);
+            logger.info("Saved {} new jobs from page {}", toSave.size(), page);
+            return toSave.size();
+        }
+
+        return 0;
+    }
+
+    /**
+     * Check if job should be skipped due to missing ID
+     */
+    private boolean shouldSkipJob(JobDto dto, int count) {
+        return dto.getExternalId() == null;
+    }
+
+    /**
+     * Check if job already exists in database
+     */
+    private boolean isDuplicate(JobDto dto) {
+        return jobRepository.findByExternalId(dto.getExternalId()).isPresent();
+    }
+
+    /**
+     * Map JobDto to JobEntity with source information
+     */
+    private JobEntity mapJobDtoToEntity(JobDto dto) {
+        dto.setSource("Adzuna");
+        return jobMapper.toEntity(dto);
+    }
+
+    /**
+     * Log statistics about job processing
+     */
+    private void logJobProcessingStats(int page, int total, int newCount, int duplicates, int noId) {
+        logger.info("Page {}: {} total jobs, {} new, {} duplicates, {} missing ID",
+                page, total, newCount, duplicates, noId);
+    }
+
+    /**
+     * Delay to respect API rate limits
+     */
+    private void delayForApiRateLimit() {
+        try {
+            Thread.sleep(API_RATE_LIMIT_DELAY_MS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            logger.warn("Rate limit delay interrupted", e);
+        }
     }
 
     /**
@@ -146,7 +228,7 @@ public class JobSearchService implements JobSearchImpl {
      */
     @Cacheable(value = "jobSearch", key = "#query + '_' + #location")
     public JobSearchResponseDto getJobsFromDatabase(String query, String location) {
-        return getJobsFromDatabase(query, location, null, null, null);
+        return getJobsFromDatabase(query, location, 25, null, null, null);
     }
 
     /**
@@ -155,7 +237,7 @@ public class JobSearchService implements JobSearchImpl {
      */
     @Cacheable(value = "jobSearch", key = "#query + '_' + #location + '_' + #dateFrom + '_' + #dateTo")
     public JobSearchResponseDto getJobsFromDatabase(String query, String location, LocalDate dateFrom, LocalDate dateTo) {
-        return getJobsFromDatabase(query, location, null, dateFrom, dateTo);
+        return getJobsFromDatabase(query, location, 25, null, dateFrom, dateTo);
     }
 
     /**
@@ -164,58 +246,23 @@ public class JobSearchService implements JobSearchImpl {
      */
     @Cacheable(value = "jobSearch", key = "#query + '_' + #location + '_' + #excludedTerms + '_' + #dateFrom + '_' + #dateTo")
     public JobSearchResponseDto getJobsFromDatabase(String query, String location, String excludedTerms, LocalDate dateFrom, LocalDate dateTo) {
-        logger.info("Fetching jobs from database for query: {}, location: {}, excludedTerms: {}, dateFrom: {}, dateTo: {}",
-                    query, location, excludedTerms, dateFrom, dateTo);
+        return getJobsFromDatabase(query, location, 25, excludedTerms, dateFrom, dateTo);
+    }
 
-        // Search database for jobs matching query and location
-        List<JobEntity> jobEntities = jobRepository.findByQueryAndLocation(query, location);
-        logger.info("Found {} jobs in database matching query: {} and location: {}", jobEntities.size(), query, location);
+    /**
+     * Get jobs from database with optional distance, exclude terms and date range filtering
+     * This method is cached in Redis for 1 hour
+     * Uses geocoding + distance-based filtering if location can be geocoded
+     */
+    @Cacheable(value = "jobSearch", key = "#query + '_' + #location + '_' + #distance + '_' + #excludedTerms + '_' + #dateFrom + '_' + #dateTo")
+    public JobSearchResponseDto getJobsFromDatabase(String query, String location, int distance, String excludedTerms, LocalDate dateFrom, LocalDate dateTo) {
+        logger.info("Fetching jobs from database for query: {}, location: {}, distance: {}, excludedTerms: {}, dateFrom: {}, dateTo: {}",
+                    query, location, distance, excludedTerms, dateFrom, dateTo);
 
-        // Apply exclude terms filtering if provided
-        if (excludedTerms != null && !excludedTerms.trim().isEmpty()) {
-            String[] excludeTermsArray = excludedTerms.split(",");
-            jobEntities = jobEntities.stream()
-                    .filter(job -> {
-                        String jobTitle = job.getTitle() != null ? job.getTitle().toLowerCase() : "";
-                        String jobDescription = job.getDescription() != null ? job.getDescription().toLowerCase() : "";
+        List<JobEntity> jobEntities = fetchJobsByLocationAndQuery(query, location, distance);
+        jobEntities = applyExcludedTermsFilter(jobEntities, excludedTerms);
+        jobEntities = applyDateFilter(jobEntities, dateFrom, dateTo);
 
-                        // Check if any exclude term is present in title or description
-                        for (String term : excludeTermsArray) {
-                            String trimmedTerm = term.trim().toLowerCase();
-                            if (!trimmedTerm.isEmpty()) {
-                                if (jobTitle.contains(trimmedTerm) || jobDescription.contains(trimmedTerm)) {
-                                    return false; // Exclude this job
-                                }
-                            }
-                        }
-                        return true; // Include this job
-                    })
-                    .collect(Collectors.toList());
-
-            logger.info("After exclude filtering: {} jobs match", jobEntities.size());
-        }
-
-        // Apply date filtering if dates are provided
-        if (dateFrom != null || dateTo != null) {
-            jobEntities = jobEntities.stream()
-                    .filter(job -> {
-                        if (job.getCreatedDate() == null) {
-                            return false;
-                        }
-                        LocalDateTime jobDateTime = job.getCreatedDate();
-                        LocalDate jobDate = jobDateTime.toLocalDate();
-
-                        boolean afterStart = dateFrom == null || !jobDate.isBefore(dateFrom);
-                        boolean beforeEnd = dateTo == null || !jobDate.isAfter(dateTo);
-
-                        return afterStart && beforeEnd;
-                    })
-                    .collect(Collectors.toList());
-
-            logger.info("After date filtering: {} jobs match", jobEntities.size());
-        }
-
-        // Convert entities to response DTOs
         List<JobResponseDto> jobs = jobEntities.stream()
                 .map(this::convertToResponseDto)
                 .collect(Collectors.toList());
@@ -225,7 +272,112 @@ public class JobSearchService implements JobSearchImpl {
         return JobSearchResponseDto.builder()
                 .count(jobs.size())
                 .results(jobs)
+                .fromCache(false)
                 .build();
+    }
+
+    /**
+     * Fetch jobs by location and query using geocoding or string matching
+     */
+    private List<JobEntity> fetchJobsByLocationAndQuery(String query, String location, int distance) {
+        GeocodingService.Coordinates coords = geocodingService.geocode(location);
+
+        if (coords != null) {
+            return fetchJobsByDistance(query, coords, distance);
+        } else {
+            return fetchJobsByLocationString(query, location);
+        }
+    }
+
+    /**
+     * Fetch jobs using distance-based geographic search
+     */
+    private List<JobEntity> fetchJobsByDistance(String query, GeocodingService.Coordinates coords, int distance) {
+        logger.info("Using geographic distance search with center: {} (lat: {}, lon: {}), radius: {} miles",
+                coords.getDisplayName(), coords.getLatitude(), coords.getLongitude(), distance);
+        
+        List<JobEntity> jobs = jobRepository.findByQueryAndDistance(query, coords.getLatitude(), coords.getLongitude(), distance);
+        logger.info("Distance-based query returned {} jobs", jobs.size());
+        return jobs;
+    }
+
+    /**
+     * Fetch jobs using string matching fallback
+     */
+    private List<JobEntity> fetchJobsByLocationString(String query, String location) {
+        logger.warn("Geocoding failed for location: {}, falling back to string matching", location);
+        logger.info("Querying database with LIKE '%{}%' in title/description AND LIKE '%{}%' in location", query, location);
+        
+        long totalJobs = jobRepository.count();
+        logger.debug("Total jobs in database: {}", totalJobs);
+        
+        List<JobEntity> jobs = jobRepository.findByQueryAndLocation(query, location);
+        logger.info("String-based query returned {} jobs", jobs.size());
+        return jobs;
+    }
+
+    /**
+     * Apply excluded terms filter to job list
+     */
+    private List<JobEntity> applyExcludedTermsFilter(List<JobEntity> jobs, String excludedTerms) {
+        if (excludedTerms == null || excludedTerms.trim().isEmpty()) {
+            return jobs;
+        }
+
+        String[] excludeTermsArray = excludedTerms.split(",");
+        List<JobEntity> filtered = jobs.stream()
+                .filter(job -> !containsExcludedTerm(job, excludeTermsArray))
+                .collect(Collectors.toList());
+
+        logger.info("After exclude filtering: {} jobs match", filtered.size());
+        return filtered;
+    }
+
+    /**
+     * Check if job contains any excluded terms
+     */
+    private boolean containsExcludedTerm(JobEntity job, String[] excludeTermsArray) {
+        String jobTitle = job.getTitle() != null ? job.getTitle().toLowerCase() : "";
+        String jobDescription = job.getDescription() != null ? job.getDescription().toLowerCase() : "";
+
+        for (String term : excludeTermsArray) {
+            String trimmedTerm = term.trim().toLowerCase();
+            if (!trimmedTerm.isEmpty() && (jobTitle.contains(trimmedTerm) || jobDescription.contains(trimmedTerm))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Apply date range filter to job list
+     */
+    private List<JobEntity> applyDateFilter(List<JobEntity> jobs, LocalDate dateFrom, LocalDate dateTo) {
+        if (dateFrom == null && dateTo == null) {
+            return jobs;
+        }
+
+        List<JobEntity> filtered = jobs.stream()
+                .filter(job -> isWithinDateRange(job, dateFrom, dateTo))
+                .collect(Collectors.toList());
+
+        logger.info("After date filtering: {} jobs match", filtered.size());
+        return filtered;
+    }
+
+    /**
+     * Check if job created date is within the specified range
+     */
+    private boolean isWithinDateRange(JobEntity job, LocalDate dateFrom, LocalDate dateTo) {
+        if (job.getCreatedDate() == null) {
+            return false;
+        }
+
+        LocalDate jobDate = job.getCreatedDate().toLocalDate();
+        boolean afterStart = dateFrom == null || !jobDate.isBefore(dateFrom);
+        boolean beforeEnd = dateTo == null || !jobDate.isAfter(dateTo);
+        
+        return afterStart && beforeEnd;
     }
 
     /**
@@ -244,32 +396,60 @@ public class JobSearchService implements JobSearchImpl {
                 .description(entity.getDescription())
                 .jobUrl(entity.getJobUrl())
                 .source(entity.getSource())
-                .createdDate(entity.getCreatedDate() != null ? entity.getCreatedDate().toString() : null)
-                .dateFound(entity.getDateFound() != null ? entity.getDateFound().toString() : null)
-                .applyBy(entity.getApplyBy() != null ? entity.getApplyBy().toString() : null)
+                .createdDate(formatDate(entity.getCreatedDate()))
+                .dateFound(formatDate(entity.getDateFound()))
+                .applyBy(formatDate(entity.getApplyBy()))
                 .build();
 
-        // Populate company name
+        populateCompanyName(dto, entity);
+        populateLocationName(dto, entity);
+        populateCategoryName(dto, entity);
+        dto.populateNestedObjects();
+
+        return dto;
+    }
+
+    /**
+     * Format LocalDateTime to string
+     */
+    private String formatDate(LocalDateTime dateTime) {
+        return dateTime != null ? dateTime.toString() : null;
+    }
+
+    /**
+     * Format LocalDate to string
+     */
+    private String formatDate(LocalDate date) {
+        return date != null ? date.toString() : null;
+    }
+
+    /**
+     * Populate company name in DTO
+     */
+    private void populateCompanyName(JobResponseDto dto, JobEntity entity) {
         if (entity.getCompanyId() != null) {
             companyRepository.findById(entity.getCompanyId())
                     .ifPresent(company -> dto.setCompanyName(company.getName()));
         }
+    }
 
-        // Populate location name
+    /**
+     * Populate location name in DTO
+     */
+    private void populateLocationName(JobResponseDto dto, JobEntity entity) {
         if (entity.getLocationId() != null) {
             locationRepository.findById(entity.getLocationId())
                     .ifPresent(location -> dto.setLocationName(location.getDisplayName()));
         }
+    }
 
-        // Populate category name
+    /**
+     * Populate category name in DTO
+     */
+    private void populateCategoryName(JobResponseDto dto, JobEntity entity) {
         if (entity.getCategoryId() != null) {
             categoryRepository.findById(entity.getCategoryId())
                     .ifPresent(category -> dto.setCategoryName(category.getName()));
         }
-
-        // Populate nested objects for frontend compatibility
-        dto.populateNestedObjects();
-
-        return dto;
     }
 }

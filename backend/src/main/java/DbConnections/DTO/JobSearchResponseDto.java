@@ -18,4 +18,5 @@ import java.util.List;
 public class JobSearchResponseDto {
     private int count;
     private List<JobResponseDto> results;
+    private boolean fromCache;
 }

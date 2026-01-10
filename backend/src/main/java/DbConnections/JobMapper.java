@@ -2,10 +2,14 @@
 package DbConnections;
 
 import DbConnections.DTO.JobDto;
-import DbConnections.DTO.Entities.*;
+import DbConnections.DTO.Entities.Company;
+import DbConnections.DTO.Entities.Category;
+import DbConnections.DTO.Entities.JobEntity;
+import DbConnections.DTO.Entities.Location;
 import DbConnections.Repositories.CategoryRepository;
 import DbConnections.Repositories.CompanyRepository;
 import DbConnections.Repositories.LocationRepository;
+import JobSearch.Services.GeocodingService;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -15,13 +19,16 @@ public class JobMapper {
     private final CompanyRepository companyRepository;
     private final LocationRepository locationRepository;
     private final CategoryRepository categoryRepository;
+    private final GeocodingService geocodingService;
 
     public JobMapper(CompanyRepository companyRepository,
                      LocationRepository locationRepository,
-                     CategoryRepository categoryRepository) {
+                     CategoryRepository categoryRepository,
+                     GeocodingService geocodingService) {
         this.companyRepository = companyRepository;
         this.locationRepository = locationRepository;
         this.categoryRepository = categoryRepository;
+        this.geocodingService = geocodingService;
     }
 
     /**
@@ -83,15 +90,20 @@ public class JobMapper {
 
     /**
      * Find or create a Location by display name
+     * Geocodes the location to get latitude/longitude coordinates
      */
     private Long findOrCreateLocation(String displayName) {
         return locationRepository.findByDisplayName(displayName)
                 .map(Location::getId)
                 .orElseGet(() -> {
-                    // For Adzuna, we only have display_name, so we'll use "US" as default country
+                    // Try to geocode the location to get coordinates
+                    GeocodingService.Coordinates coords = geocodingService.geocode(displayName);
+
                     Location location = Location.builder()
                             .displayName(displayName)
                             .country("US")
+                            .latitude(coords != null ? coords.getLatitude() : null)
+                            .longitude(coords != null ? coords.getLongitude() : null)
                             .build();
                     return locationRepository.save(location).getId();
                 });

@@ -1,6 +1,10 @@
 package JobSearch.Services;
 
+import Authentication.DTO.UserDto;
+import Authentication.Entities.User;
+import Authentication.Repositories.UserRepository;
 import DbConnections.DTO.Entities.SavedQuery;
+import DbConnections.Repositories.JobRepository;
 import DbConnections.Repositories.SavedQueryRepository;
 import JobSearch.Services.Implementations.JobSearchImpl;
 import org.slf4j.Logger;
@@ -22,17 +26,27 @@ public class ScheduledJobFetchService {
 
     private final JobSearchImpl jobSearchService;
     private final SavedQueryRepository savedQueryRepository;
+    private final JobRepository jobRepository;
+    private final UserRepository userRepository;
+    private final EmailService emailService;
 
-    public ScheduledJobFetchService(JobSearchImpl jobSearchService, SavedQueryRepository savedQueryRepository) {
+    public ScheduledJobFetchService(JobSearchImpl jobSearchService, 
+                                   SavedQueryRepository savedQueryRepository,
+                                   JobRepository jobRepository,
+                                   UserRepository userRepository,
+                                   EmailService emailService) {
         this.jobSearchService = jobSearchService;
         this.savedQueryRepository = savedQueryRepository;
+        this.jobRepository = jobRepository;
+        this.userRepository = userRepository;
+        this.emailService = emailService;
     }
 
     /**
-     * Scheduled task that runs every 15 seconds
-     * Fixed rate: 15000ms = 15 seconds
+     * Scheduled task that runs once per day at midnight
+     * Cron: 0 0 0 * * * = every day at midnight
      */
-    @Scheduled(fixedRate = 15000)
+    @Scheduled(cron = "0 0 0 * * *")
     public void fetchAndCacheJobs() {
         logger.info("Starting scheduled job fetch at {}", LocalDateTime.now());
 
@@ -65,16 +79,61 @@ public class ScheduledJobFetchService {
         try {
             logger.info("Fetching jobs for query: '{}', location: '{}'", savedQuery.getQuery(), savedQuery.getLocation());
 
+            // Count jobs before fetch
+            long jobCountBefore = jobRepository.count();
+
             // This will fetch multiple pages and save to database
             jobSearchService.searchJobs(savedQuery.getQuery(), savedQuery.getLocation(), savedQuery.getDistance());
 
-            // Update last run timestamp
+            // Count jobs after fetch
+            long jobCountAfter = jobRepository.count();
+            int newJobCount = (int) (jobCountAfter - jobCountBefore);
+
+            // Update saved query with new job count and last run time
+            savedQuery.setNewJobsCount(newJobCount);
             savedQuery.setLastRunAt(LocalDateTime.now());
             savedQueryRepository.save(savedQuery);
 
-            logger.info("Completed fetching jobs for query: '{}', location: '{}'", savedQuery.getQuery(), savedQuery.getLocation());
+            logger.info("Found {} new jobs for query: '{}', location: '{}'", newJobCount, savedQuery.getQuery(), savedQuery.getLocation());
+
+            // Send email notification if new jobs were found
+            if (newJobCount > 0) {
+                sendEmailNotification(savedQuery, newJobCount);
+            }
+
         } catch (Exception e) {
             logger.error("Error fetching jobs for query: '{}', location: '{}' - {}", savedQuery.getQuery(), savedQuery.getLocation(), e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Send email notification to user about new jobs
+     */
+    private void sendEmailNotification(SavedQuery savedQuery, int newJobCount) {
+        try {
+            // Fetch user details
+            User user = userRepository.findById(savedQuery.getUserId())
+                .orElse(null);
+
+            if (user == null) {
+                logger.warn("User not found for saved query ID: {}", savedQuery.getId());
+                return;
+            }
+
+            // Convert to DTO
+            UserDto userDto = UserDto.builder()
+                .id(user.getId())
+                .username(user.getUsername())
+                .email(user.getEmail())
+                .firstName(user.getFirstName())
+                .lastName(user.getLastName())
+                .build();
+
+            // Send email
+            emailService.sendJobNotification(userDto, savedQuery, newJobCount);
+
+        } catch (Exception e) {
+            logger.error("Error sending email notification for query ID: {} - {}", savedQuery.getId(), e.getMessage(), e);
         }
     }
 

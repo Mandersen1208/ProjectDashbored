@@ -5,12 +5,15 @@ A full-stack job search application that aggregates job postings from multiple A
 ## Features
 
 - **Job Search API Integration**: Fetches jobs from Adzuna API with multi-page support
+- **Geographic Distance-Based Filtering**: **NEW!** Uses Haversine formula and geocoding to find jobs within actual distance radius
+- **Automatic Geocoding**: **NEW!** Automatically geocodes locations using Nominatim (OpenStreetMap) API - free, no API key required
+- **Advanced Job Filtering**: **NEW!** Exclude terms, date range filtering, and distance-based search
 - **JWT Authentication**: Secure user authentication with token-based auth and refresh capability
 - **Login State Persistence**: Users stay logged in across page refreshes via localStorage
 - **Automated Job Fetching**: Scheduled service runs every 15 seconds to fetch new jobs based on saved queries
-- **Redis Caching**: Caches job search results for fast retrieval (1-hour TTL)
+- **Redis Caching**: Caches job search results and geocoding data for fast retrieval (1-hour TTL)
 - **Saved Queries**: Store and manage search parameters for automated fetching
-- **Database Persistence**: PostgreSQL database with normalized schema
+- **Database Persistence**: PostgreSQL database with normalized schema including lat/lon coordinates
 - **REST API**: Full CRUD operations for jobs, saved queries, and authentication
 
 ## Tech Stack
@@ -242,10 +245,23 @@ SET job:5354569383 "https://www.adzuna.com/land/ad/5354569383?..."
 ### Job Search
 
 **GET** `/api/jobs/search`
-- **Query Params**: `query` (required), `location` (required), `distance` (optional)
+- **Query Params**:
+  - `query` (required): Job title or keywords
+  - `location` (required): Job location (automatically geocoded)
+  - `distance` (optional, default=25): Search radius in miles
+  - `excludedTerms` (optional): Comma-separated terms to exclude
+  - `dateFrom` (optional): Start date filter (YYYY-MM-DD)
+  - `dateTo` (optional): End date filter (YYYY-MM-DD)
 - **Response**: `{ "count": 250, "results": [{job1}, {job2}, ...] }`
-- **Example**: `/api/jobs/search?query=python&location=New York&distance=25`
+- **Examples**:
+  - Basic: `/api/jobs/search?query=python&location=New York`
+  - With distance: `/api/jobs/search?query=python&location=New York&distance=50`
+  - With filters: `/api/jobs/search?query=developer&location=Boston&distance=30&excludedTerms=senior,lead&dateFrom=2025-01-01`
 - **Auth**: Public (no authentication required)
+- **Features**:
+  - Automatically geocodes location and uses Haversine distance formula
+  - Falls back to string matching if geocoding fails
+  - Returns jobs within actual geographic radius, not just location name match
 
 ### Saved Queries
 

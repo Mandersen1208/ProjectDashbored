@@ -49,14 +49,30 @@ services:
     ports:
       - "8080:8080"
     environment:
+      # Database configuration
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/JobHunterDb2
-      SPRING_DATASOURCE_USERNAME: admin
-      SPRING_DATASOURCE_PASSWORD: password
+      SPRING_DATASOURCE_USERNAME: ${DB_USERNAME:-admin}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-password}
       SPRING_JPA_HIBERNATE_DDL_AUTO: none
-      SPRING_JPA_SHOW_SQL: "true"
+      SPRING_JPA_SHOW_SQL: ${SHOW_SQL:-false}
       SPRING_JPA_OPEN_IN_VIEW: "false"
+      # Redis configuration
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: "6379"
+      # Adzuna API configuration
+      ADZUNA_API_ID: ${ADZUNA_API_ID}
+      ADZUNA_API_KEY: ${ADZUNA_API_KEY}
+      ADZUNA_BASE_URL: ${ADZUNA_BASE_URL:-https://api.adzuna.com/v1/api/jobs/us/search/1}
+      # JWT configuration
+      APP_JWT_SECRET: ${JWT_SECRET}
+      APP_JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
+      # Email configuration (disabled by default)
+      EMAIL_ENABLED: ${EMAIL_ENABLED:-false}
+      MAIL_HOST: ${MAIL_HOST:-smtp.gmail.com}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      EMAIL_FROM: ${EMAIL_FROM:-noreply@jobhunter.com}
     depends_on:
       db:
         condition: service_healthy
