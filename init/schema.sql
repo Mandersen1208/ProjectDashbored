@@ -45,7 +45,9 @@ CREATE TABLE locations (
     city VARCHAR(100),
     state VARCHAR(100),
     country VARCHAR(2) NOT NULL,
-    display_name VARCHAR(255) NOT NULL UNIQUE
+    display_name VARCHAR(255) NOT NULL UNIQUE,
+    latitude DOUBLE PRECISION,
+    longitude DOUBLE PRECISION
 );
 
 -- Categories table
@@ -164,6 +166,8 @@ CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_users_role ON users(role_id);
 CREATE INDEX idx_refresh_tokens_user ON refresh_tokens(user_id);
 CREATE INDEX idx_refresh_tokens_token ON refresh_tokens(token);
+CREATE INDEX idx_locations_latitude ON locations(latitude);
+CREATE INDEX idx_locations_longitude ON locations(longitude);
 
 -- ============================================
 -- TRIGGERS

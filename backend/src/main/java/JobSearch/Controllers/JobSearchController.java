@@ -64,11 +64,11 @@ public class JobSearchController {
                     query, location, excludedTerms, dateFrom, dateTo);
 
         // Step 1 & 2: Fetch fresh jobs from Adzuna API and save to database
-        logger.info("Fetching fresh jobs from Adzuna API for query: {}, location: {}", query, location);
+        logger.info("Fetching fresh jobs from Adzuna API for query: {}, location: {}, distance: {}", query, location, distance);
         jobSearchImpl.searchJobs(query, location, distance);
 
         // Step 3, 4, 5: Query database with specific search params, apply filters, return cached results
-        JobSearchResponseDto response = jobSearchService.getJobsFromDatabase(query, location, excludedTerms, dateFrom, dateTo);
+        JobSearchResponseDto response = jobSearchService.getJobsFromDatabase(query, location, distance, excludedTerms, dateFrom, dateTo);
         logger.info("Returning {} jobs matching search criteria", response.getResults().size());
 
         return ResponseEntity.ok(response);

@@ -24,6 +24,9 @@
 - ✅ HikariCP connection pooling configured
 - ✅ Schema fully managed by init/schema.sql (hibernate ddl-auto=none)
 - ✅ Optimistic locking exception RESOLVED
+- ✅ **Geographic distance-based filtering with automatic geocoding** - NEW!
+- ✅ **Exclude terms filtering for job searches** - NEW!
+- ✅ **Date range filtering for job searches** - NEW!
 - 🚧 Dashboard backend services are stubbed but not fully implemented
 - 🚧 Test structure exists but tests are not yet written
 
@@ -48,6 +51,7 @@ src/
 │   │   │   │   └── JobSearchController.java   # Job search API
 │   │   │   └── Services/                      # Business logic
 │   │   │       ├── JobSearchService.java      # Service implementation
+│   │   │       ├── GeocodingService.java      # Geocoding service (Nominatim API)
 │   │   │       └── Implementations/
 │   │   │           └── JobSearchImpl.java     # Service interface
 │   │   ├── DashBoardBackend/                  # Dashboard module (STUB)
@@ -276,8 +280,11 @@ Maps to `locations` table:
 - `state` (String) - Optional
 - `country` (String) - Required (2-letter code)
 - `displayName` (String) - Required, human-readable location
+- `latitude` (Double) - Geographic latitude coordinate (auto-geocoded)
+- `longitude` (Double) - Geographic longitude coordinate (auto-geocoded)
 
 **Unique Constraint**: (city, state, country)
+**Indexes**: latitude, longitude (for distance-based queries)
 
 ##### Category (`DbConnections.DTO.Entities.Category`)
 Maps to `categories` table:
@@ -293,6 +300,8 @@ All repositories extend `JpaRepository<Entity, Long>`:
 
 ##### JobRepository (`DbConnections.Repositories.JobRepository`)
 - `findByExternalId(String externalId)` - Look up job by Adzuna ID
+- `findByQueryAndLocation(String query, String location)` - Search by query terms and location string (LIKE match)
+- `findByQueryAndDistance(String query, double centerLat, double centerLon, int distanceMiles)` - **NEW!** Search by query and geographic distance using Haversine formula
 
 ##### CompanyRepository (`DbConnections.Repositories.CompanyRepository`)
 - `findByName(String name)` - Look up company by name
@@ -310,7 +319,7 @@ All repositories extend `JpaRepository<Entity, Long>`:
 **Key Behavior**:
 1. **Lookup or Create Pattern**: For each job, the mapper:
    - Checks if company exists → if not, creates it
-   - Checks if location exists → if not, creates it
+   - Checks if location exists → if not, creates it and **automatically geocodes it**
    - Checks if category exists → if not, creates it
    - Returns the foreign key IDs
 
@@ -324,10 +333,16 @@ All repositories extend `JpaRepository<Entity, Long>`:
    - Maps Adzuna `"id"` to `externalId` field
    - Database auto-generates the entity ID
 
+4. **Geocoding Integration**: **NEW!**
+   - Injects `GeocodingService` dependency
+   - When creating new locations, automatically geocodes them via Nominatim API
+   - Stores latitude/longitude coordinates in the database
+   - Enables distance-based job filtering
+
 **Methods**:
 - `toEntity(JobDto)` - Main conversion, handles lookup/create
 - `findOrCreateCompany(String)` - Private helper
-- `findOrCreateLocation(String)` - Private helper
+- `findOrCreateLocation(String)` - Private helper with **automatic geocoding**
 - `findOrCreateCategory(String)` - Private helper
 - `toDto(JobEntity)` - Reverse conversion (limited, IDs only)
 
@@ -357,6 +372,26 @@ JobMapper process:
 
 ### 6. Services
 
+#### GeocodingService (`JobSearch.Services.GeocodingService`) - **NEW!**
+Free geocoding service for converting location strings to lat/lon coordinates.
+
+**Technology**: Uses Nominatim (OpenStreetMap) API - **free, no API key required**
+
+**Key Features**:
+- Converts location strings (e.g., "New York, NY") to geographic coordinates
+- Results cached with `@Cacheable(value = "geocoding")` to avoid repeated API calls
+- Returns `Coordinates` class with latitude, longitude, and display name
+- Handles errors gracefully, returns null if geocoding fails
+
+**Methods**:
+- `geocode(String location)` - Main geocoding method, cached
+- Inner class: `Coordinates` - Serializable container for lat/lon/displayName
+
+**Usage Notes**:
+- Adds User-Agent header (required by Nominatim usage policy)
+- Automatically called by `JobMapper` when creating new locations
+- Nominatim API has rate limits - caching prevents hitting limits
+
 #### JobSearchService (`JobSearch.Services.JobSearchService`)
 - Implements `JobSearchImpl` interface
 - Annotated with `@Transactional` for database operations
@@ -366,7 +401,7 @@ JobMapper process:
   3. Parses JSON response to `List<JobDto>`
   4. For each job:
      - Checks if it already exists (by `externalId`)
-     - If new: Sets `source="Adzuna"` and converts to entity
+     - If new: Sets `source="Adzuna"` and converts to entity (with auto-geocoding)
      - Skips if already in database
   5. Batch saves all new jobs via `jobRepository.saveAll()`
   6. Returns original API response to caller
@@ -374,8 +409,22 @@ JobMapper process:
 **Key Features**:
 - Automatic duplicate detection via `externalId`
 - Transaction ensures atomicity
-- `JobMapper` handles foreign key lookups/creates
+- `JobMapper` handles foreign key lookups/creates with **automatic geocoding**
 - Logs count of saved jobs
+
+**Database Query Methods**: **NEW!**
+- `getJobsFromDatabase(query, location)` - Basic search
+- `getJobsFromDatabase(query, location, dateFrom, dateTo)` - With date filtering
+- `getJobsFromDatabase(query, location, excludedTerms, dateFrom, dateTo)` - With exclude terms
+- `getJobsFromDatabase(query, location, distance, excludedTerms, dateFrom, dateTo)` - **Full-featured with distance**
+
+**Smart Query Selection**: **NEW!**
+1. Attempts to geocode the search location
+2. If successful: Uses `findByQueryAndDistance()` with Haversine formula
+3. If geocoding fails: Falls back to `findByQueryAndLocation()` string matching
+4. Applies exclude terms filtering (comma-separated list)
+5. Applies date range filtering (dateFrom/dateTo)
+6. Results cached in Redis for 1 hour
 
 ### 7. Dashboard Backend (Stub)
 
@@ -647,8 +696,20 @@ Main class: `main.JobSearchApplication`
 ### Testing the API
 
 ```bash
-# Search for jobs
+# Basic search
 curl "http://localhost:8080/api/jobs/search?query=software+engineer&location=New+York"
+
+# Search with distance parameter (default: 25 miles)
+curl "http://localhost:8080/api/jobs/search?query=java+developer&location=New+York&distance=50"
+
+# Search with exclude terms (comma-separated)
+curl "http://localhost:8080/api/jobs/search?query=developer&location=Remote&excludedTerms=senior,lead"
+
+# Search with date range
+curl "http://localhost:8080/api/jobs/search?query=engineer&location=Seattle&dateFrom=2025-01-01&dateTo=2025-01-31"
+
+# Full-featured search
+curl "http://localhost:8080/api/jobs/search?query=developer&location=Boston&distance=30&excludedTerms=senior&dateFrom=2025-01-01"
 ```
 
 ### Docker Database Setup

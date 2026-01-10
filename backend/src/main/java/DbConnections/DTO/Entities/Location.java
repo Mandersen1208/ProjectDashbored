@@ -34,4 +34,10 @@ public class Location implements Serializable {
 
     @Column(name = "display_name", nullable = false, length = 255)
     private String displayName;
+
+    @Column(name = "latitude")
+    private Double latitude;
+
+    @Column(name = "longitude")
+    private Double longitude;
 }

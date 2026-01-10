@@ -43,6 +43,7 @@ public class JobSearchService implements JobSearchImpl {
     private final CategoryRepository categoryRepository;
     private final JobMapper jobMapper;
     private final ObjectMapper objectMapper;
+    private final GeocodingService geocodingService;
 
 
     public JobSearchService(AdzunaClient adzunaClient,
@@ -51,7 +52,8 @@ public class JobSearchService implements JobSearchImpl {
                             LocationRepository locationRepository,
                             CategoryRepository categoryRepository,
                             JobMapper jobMapper,
-                            ObjectMapper objectMapper) {
+                            ObjectMapper objectMapper,
+                            GeocodingService geocodingService) {
         this.adzunaClient = adzunaClient;
         this.jobRepository = jobRepository;
         this.companyRepository = companyRepository;
@@ -59,6 +61,7 @@ public class JobSearchService implements JobSearchImpl {
         this.categoryRepository = categoryRepository;
         this.jobMapper = jobMapper;
         this.objectMapper = objectMapper;
+        this.geocodingService = geocodingService;
     }
 
     @Override
@@ -103,14 +106,21 @@ public class JobSearchService implements JobSearchImpl {
                     break;
                 }
 
+                logger.info("Page {} returned {} jobs from Adzuna", page, dtos.size());
+
                 List<JobEntity> toSave = new ArrayList<>();
+                int skippedNoId = 0;
+                int skippedDuplicate = 0;
+
                 for (JobDto dto : dtos) {
                     if (dto.getExternalId() == null) {
+                        skippedNoId++;
                         continue; // Skip jobs without external ID
                     }
 
                     // Skip if job already exists
                     if (jobRepository.findByExternalId(dto.getExternalId()).isPresent()) {
+                        skippedDuplicate++;
                         continue;
                     }
 
@@ -123,10 +133,15 @@ public class JobSearchService implements JobSearchImpl {
                     toSave.add(entity);
                 }
 
+                logger.info("Page {}: {} total jobs, {} new, {} duplicates, {} missing ID",
+                           page, dtos.size(), toSave.size(), skippedDuplicate, skippedNoId);
+
                 if (!toSave.isEmpty()) {
                     jobRepository.saveAll(toSave);
                     totalJobsSaved += toSave.size();
                     logger.info("Saved {} new jobs from page {}", toSave.size(), page);
+                } else {
+                    logger.info("No new jobs to save on page {}", page);
                 }
 
                 // Small delay to avoid hitting API rate limits
@@ -134,6 +149,8 @@ public class JobSearchService implements JobSearchImpl {
 
             } catch (Exception e) {
                 logger.error("Error processing page {}: {}", page, e.getMessage(), e);
+                // Continue to next page on error, don't fail entire transaction
+                continue;
             }
         }
 
@@ -146,7 +163,7 @@ public class JobSearchService implements JobSearchImpl {
      */
     @Cacheable(value = "jobSearch", key = "#query + '_' + #location")
     public JobSearchResponseDto getJobsFromDatabase(String query, String location) {
-        return getJobsFromDatabase(query, location, null, null, null);
+        return getJobsFromDatabase(query, location, 25, null, null, null);
     }
 
     /**
@@ -155,7 +172,7 @@ public class JobSearchService implements JobSearchImpl {
      */
     @Cacheable(value = "jobSearch", key = "#query + '_' + #location + '_' + #dateFrom + '_' + #dateTo")
     public JobSearchResponseDto getJobsFromDatabase(String query, String location, LocalDate dateFrom, LocalDate dateTo) {
-        return getJobsFromDatabase(query, location, null, dateFrom, dateTo);
+        return getJobsFromDatabase(query, location, 25, null, dateFrom, dateTo);
     }
 
     /**
@@ -164,12 +181,41 @@ public class JobSearchService implements JobSearchImpl {
      */
     @Cacheable(value = "jobSearch", key = "#query + '_' + #location + '_' + #excludedTerms + '_' + #dateFrom + '_' + #dateTo")
     public JobSearchResponseDto getJobsFromDatabase(String query, String location, String excludedTerms, LocalDate dateFrom, LocalDate dateTo) {
-        logger.info("Fetching jobs from database for query: {}, location: {}, excludedTerms: {}, dateFrom: {}, dateTo: {}",
-                    query, location, excludedTerms, dateFrom, dateTo);
+        return getJobsFromDatabase(query, location, 25, excludedTerms, dateFrom, dateTo);
+    }
 
-        // Search database for jobs matching query and location
-        List<JobEntity> jobEntities = jobRepository.findByQueryAndLocation(query, location);
-        logger.info("Found {} jobs in database matching query: {} and location: {}", jobEntities.size(), query, location);
+    /**
+     * Get jobs from database with optional distance, exclude terms and date range filtering
+     * This method is cached in Redis for 1 hour
+     * Uses geocoding + distance-based filtering if location can be geocoded
+     */
+    @Cacheable(value = "jobSearch", key = "#query + '_' + #location + '_' + #distance + '_' + #excludedTerms + '_' + #dateFrom + '_' + #dateTo")
+    public JobSearchResponseDto getJobsFromDatabase(String query, String location, int distance, String excludedTerms, LocalDate dateFrom, LocalDate dateTo) {
+        logger.info("Fetching jobs from database for query: {}, location: {}, distance: {}, excludedTerms: {}, dateFrom: {}, dateTo: {}",
+                    query, location, distance, excludedTerms, dateFrom, dateTo);
+
+        List<JobEntity> jobEntities;
+
+        // Try geocoding approach first for more accurate geographic filtering
+        GeocodingService.Coordinates coords = geocodingService.geocode(location);
+
+        if (coords != null) {
+            // Use distance-based query with Haversine formula
+            logger.info("Using geographic distance search with center: {} (lat: {}, lon: {}), radius: {} miles",
+                       coords.getDisplayName(), coords.getLatitude(), coords.getLongitude(), distance);
+            jobEntities = jobRepository.findByQueryAndDistance(query, coords.getLatitude(), coords.getLongitude(), distance);
+            logger.info("Distance-based query returned {} jobs", jobEntities.size());
+        } else {
+            // Fall back to string matching if geocoding fails
+            logger.warn("Geocoding failed for location: {}, falling back to string matching", location);
+            logger.info("Querying database with LIKE '%{}%' in title/description AND LIKE '%{}%' in location", query, location);
+            jobEntities = jobRepository.findByQueryAndLocation(query, location);
+            logger.info("String-based query returned {} jobs", jobEntities.size());
+        }
+
+        // Debug: Check total jobs in database
+        long totalJobs = jobRepository.count();
+        logger.info("Total jobs in database: {}", totalJobs);
 
         // Apply exclude terms filtering if provided
         if (excludedTerms != null && !excludedTerms.trim().isEmpty()) {
