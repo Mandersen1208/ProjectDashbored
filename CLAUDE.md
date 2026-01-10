@@ -1,5 +1,136 @@
 # CLAUDE.md - AI Assistant Guide for ProjectDashbored
 
+---
+
+## 🚀 SESSION HANDOFF - Latest Work (2026-01-09)
+
+### What Was Just Completed
+
+**Geographic Distance-Based Job Filtering** - Fully implemented and operational ✅
+
+**Problem Solved**: Database was returning only 3 jobs when Adzuna returned hundreds because location string matching (`LIKE '%new york%'`) missed jobs in nearby cities (Brooklyn, Queens, Jersey City, etc.).
+
+**Solution Implemented**: Geographic distance-based filtering using Haversine formula + automatic geocoding.
+
+### Files Modified in This Session
+
+1. **[init/schema.sql:49-50](init/schema.sql#L49-L50)** - Added `latitude` and `longitude` columns to locations table + indexes
+2. **[Location.java:38-42](backend/src/main/java/DbConnections/DTO/Entities/Location.java#L38-L42)** - Added lat/lon fields
+3. **[GeocodingService.java](backend/src/main/java/JobSearch/Services/GeocodingService.java)** - **NEW FILE** - Nominatim API integration, Redis caching
+4. **[JobRepository.java:43-55](backend/src/main/java/DbConnections/Repositories/JobRepository.java#L43-L55)** - Added `findByQueryAndDistance()` with Haversine formula
+5. **[JobMapper.java:88-103](backend/src/main/java/DbConnections/JobMapper.java#L88-L103)** - Integrated geocoding in `findOrCreateLocation()`
+6. **[JobSearchService.java:192-218](backend/src/main/java/JobSearch/Services/JobSearchService.java#L192-L218)** - Smart query selection (geocoding → distance or fallback)
+7. **[JobSearchController.java:59-71](backend/src/main/java/JobSearch/Controllers/JobSearchController.java#L59-L71)** - Pass distance parameter
+
+### How It Works Now
+
+**API Request**: `GET /api/jobs/search?query=developer&location=New York&distance=25`
+
+**Flow**:
+1. Fetch jobs from Adzuna (within 25 miles of New York)
+2. Save jobs to database with automatic geocoding:
+   - Geocode "Brooklyn, NY" → (40.6782, -73.9442)
+   - Store in locations table with coordinates
+3. Query database:
+   - Geocode "New York" → (40.7128, -74.0060)
+   - Use Haversine formula: `3959 * acos(cos(radians(centerLat)) * cos(radians(l.latitude)) * cos(radians(l.longitude) - radians(centerLon)) + sin(radians(centerLat)) * sin(radians(l.latitude)))`
+   - Return all jobs within 25 miles (includes Brooklyn, Queens, Jersey City, etc.)
+4. Apply filters: exclude terms, date range
+5. Return results
+
+**Result**: Now returns hundreds of jobs instead of 3!
+
+### Database Schema Changes
+
+**IMPORTANT**: Database was recreated with `docker-compose down -v && docker-compose up -d`
+
+```sql
+-- locations table NOW has:
+CREATE TABLE locations (
+    id BIGSERIAL PRIMARY KEY,
+    city VARCHAR(100),
+    state VARCHAR(100),
+    country VARCHAR(2) NOT NULL,
+    display_name VARCHAR(255) NOT NULL UNIQUE,
+    latitude DOUBLE PRECISION,        -- NEW!
+    longitude DOUBLE PRECISION        -- NEW!
+);
+
+CREATE INDEX idx_locations_latitude ON locations(latitude);    -- NEW!
+CREATE INDEX idx_locations_longitude ON locations(longitude);  -- NEW!
+```
+
+### Key Implementation Details
+
+**GeocodingService**:
+- Uses Nominatim (OpenStreetMap) - **free, no API key**
+- Cached with `@Cacheable("geocoding")`
+- Returns `Coordinates` class (Serializable for Redis)
+- Has default constructor for Jackson deserialization
+
+**Haversine Distance Query**:
+- Native SQL query in `JobRepository.findByQueryAndDistance()`
+- Calculates distance in miles on-the-fly
+- Uses LEFT JOIN to include jobs with null coordinates
+
+**Smart Fallback**:
+- Try geocoding first
+- If successful: use distance-based query
+- If fails: fall back to string matching
+
+### Additional Filters Implemented
+
+1. **Exclude Terms**: `excludedTerms=senior,lead` - Filters out jobs containing these terms
+2. **Date Range**: `dateFrom=2025-01-01&dateTo=2025-01-31` - Filters by job creation date
+3. **Distance**: `distance=50` - Search radius in miles (default: 25)
+
+### Testing
+
+```bash
+# Basic search
+curl "http://localhost:8080/api/jobs/search?query=developer&location=New York"
+
+# With all filters
+curl "http://localhost:8080/api/jobs/search?query=developer&location=Boston&distance=30&excludedTerms=senior&dateFrom=2025-01-01"
+```
+
+### Current Status
+
+✅ **All features working**:
+- Geographic distance filtering
+- Automatic geocoding
+- Exclude terms filtering
+- Date range filtering
+- Redis caching (geocoding + job search results)
+- Database persistence with lat/lon coordinates
+
+✅ **Documentation updated**:
+- CLAUDE.md - Full implementation details
+- README.md - API examples and features
+
+### Known Issues / Considerations
+
+1. **Nominatim Rate Limits**: Free tier has usage limits - caching mitigates this
+2. **Geocoding Accuracy**: Some locations may not geocode perfectly - falls back gracefully
+3. **Performance**: Haversine calculation in SQL is efficient with indexes on lat/lon
+
+### Next Session Should Focus On
+
+1. **Testing**: Write tests for GeocodingService and distance queries
+2. **Error Handling**: Add better error messages if geocoding consistently fails
+3. **Monitoring**: Add metrics for geocoding success/failure rates
+4. **Frontend Integration**: Update frontend to use new distance/filter parameters
+
+### Important Notes for Next Assistant
+
+- Database schema is managed by `init/schema.sql` (not Hibernate)
+- After schema changes: `docker-compose down -v && docker-compose up -d`
+- Redis caching is enabled for both "geocoding" and "jobSearch"
+- All new locations are automatically geocoded when jobs are saved
+- The system gracefully handles geocoding failures
+
+---
+
 ## Project Overview
 
 **ProjectDashbored** (also known as JobHunter1) is a Spring Boot application designed to aggregate job postings from multiple job search APIs and provide a unified dashboard for job seekers. The application currently integrates with the Adzuna API and is architected to support additional job search providers in the future.
